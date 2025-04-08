@@ -303,7 +303,11 @@ public class LoginHandler extends BaseFrontendHandler<LoginRequest>
             AuditContext auditContext,
             AuthSessionItem authSessionItem) {
 
-        var userMfaDetail = getUserMFADetail(userContext, userCredentials, userProfile);
+        var userMfaDetail =
+                getUserMFADetail(
+                        authSessionItem.getRequestedCredentialStrength(),
+                        userCredentials,
+                        userProfile);
 
         boolean isPasswordChangeRequired = isPasswordResetRequired(request.getPassword());
 
