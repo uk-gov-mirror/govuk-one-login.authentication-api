@@ -142,7 +142,8 @@ class VerifyCodeHandlerTest {
             new AuthSessionItem()
                     .withSessionId(SESSION_ID)
                     .withEmailAddress(EMAIL)
-                    .withInternalCommonSubjectId(INTERNAL_COMMON_SUBJECT_ID);
+                    .withInternalCommonSubjectId(INTERNAL_COMMON_SUBJECT_ID)
+                    .withClientId(CLIENT_ID);
     private final ClientSessionService clientSessionService = mock(ClientSessionService.class);
     private final ClientService clientService = mock(ClientService.class);
     private final AuthenticationService authenticationService = mock(AuthenticationService.class);
@@ -400,6 +401,7 @@ class VerifyCodeHandlerTest {
         when(mfaMethodsService.getMfaMethods(email))
                 .thenReturn(Result.failure(MfaRetrieveFailureReason.USER_DOES_NOT_HAVE_ACCOUNT));
         authSession.setEmailAddress(email);
+        authSession.setClientId(TEST_CLIENT_ID);
         String body =
                 format(
                         "{ \"code\": \"%s\", \"notificationType\": \"%s\"  }",
@@ -437,6 +439,7 @@ class VerifyCodeHandlerTest {
         when(mfaMethodsService.getMfaMethods(email))
                 .thenReturn(Result.failure(MfaRetrieveFailureReason.USER_DOES_NOT_HAVE_ACCOUNT));
         authSession.setEmailAddress(email);
+        authSession.setClientId(TEST_CLIENT_ID);
         String body =
                 format("{ \"code\": \"%s\", \"notificationType\": \"%s\"  }", CODE, VERIFY_EMAIL);
         var result = makeCallWithCode(body, Optional.of(session), TEST_CLIENT_ID);
@@ -833,6 +836,7 @@ class VerifyCodeHandlerTest {
                 .thenReturn(Result.success(List.of(DEFAULT_SMS_METHOD)));
 
         authSession.setEmailAddress(TEST_CLIENT_EMAIL);
+        authSession.setClientId(TEST_CLIENT_ID);
         String body =
                 format(
                         "{ \"code\": \"%s\", \"notificationType\": \"%s\"  }",

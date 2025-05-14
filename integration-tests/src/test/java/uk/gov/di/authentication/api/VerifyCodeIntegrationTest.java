@@ -85,6 +85,7 @@ public class VerifyCodeIntegrationTest extends ApiGatewayHandlerIntegrationTest 
                         redisConnectionService);
         this.sessionId = redis.createSession();
         authSessionExtension.addSession(this.sessionId);
+        authSessionExtension.addClientIdToSession(this.sessionId, CLIENT_ID);
         txmaAuditQueue.clear();
     }
 
