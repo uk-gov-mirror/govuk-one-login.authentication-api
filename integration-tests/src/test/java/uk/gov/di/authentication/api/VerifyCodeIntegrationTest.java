@@ -21,6 +21,7 @@ import uk.gov.di.authentication.shared.entity.ErrorResponse;
 import uk.gov.di.authentication.shared.entity.JourneyType;
 import uk.gov.di.authentication.shared.entity.NotificationType;
 import uk.gov.di.authentication.shared.entity.ServiceType;
+import uk.gov.di.authentication.shared.entity.mfa.MFAMethod;
 import uk.gov.di.authentication.shared.entity.mfa.MFAMethodType;
 import uk.gov.di.authentication.shared.helpers.ClientSubjectHelper;
 import uk.gov.di.authentication.shared.helpers.SaltHelper;
@@ -50,6 +51,8 @@ import static uk.gov.di.authentication.shared.entity.NotificationType.MFA_SMS;
 import static uk.gov.di.authentication.shared.entity.NotificationType.RESET_PASSWORD_WITH_CODE;
 import static uk.gov.di.authentication.shared.entity.NotificationType.VERIFY_CHANGE_HOW_GET_SECURITY_CODES;
 import static uk.gov.di.authentication.shared.entity.NotificationType.VERIFY_EMAIL;
+import static uk.gov.di.authentication.shared.helpers.CommonTestVariables.BACKUP_SMS_METHOD;
+import static uk.gov.di.authentication.shared.helpers.CommonTestVariables.DEFAULT_SMS_METHOD;
 import static uk.gov.di.authentication.shared.services.CodeStorageService.CODE_BLOCKED_KEY_PREFIX;
 import static uk.gov.di.authentication.sharedtest.helper.AuditAssertionsHelper.assertTxmaAuditEventsReceived;
 import static uk.gov.di.authentication.sharedtest.matchers.APIGatewayProxyResponseEventMatcher.hasJsonBody;
@@ -95,7 +98,8 @@ public class VerifyCodeIntegrationTest extends ApiGatewayHandlerIntegrationTest 
             NotificationType emailNotificationType) throws Json.JsonException {
         setUpTestWithoutSignUp(sessionId, withScope());
         String code = redis.generateAndSaveEmailCode(EMAIL_ADDRESS, 900, emailNotificationType);
-        VerifyCodeRequest codeRequest = new VerifyCodeRequest(emailNotificationType, code);
+        VerifyCodeRequest codeRequest =
+                new VerifyCodeRequest(emailNotificationType, code, null, null);
 
         var response =
                 makeRequest(
@@ -118,7 +122,8 @@ public class VerifyCodeIntegrationTest extends ApiGatewayHandlerIntegrationTest 
                 sessionId, emailNotificationType, JourneyType.ACCOUNT_RECOVERY);
         setUpTestWithoutSignUp(sessionId, withScope());
         String code = redis.generateAndSaveEmailCode(EMAIL_ADDRESS, 900, emailNotificationType);
-        VerifyCodeRequest codeRequest = new VerifyCodeRequest(emailNotificationType, code);
+        VerifyCodeRequest codeRequest =
+                new VerifyCodeRequest(emailNotificationType, code, null, null);
 
         var response =
                 makeRequest(
@@ -139,7 +144,8 @@ public class VerifyCodeIntegrationTest extends ApiGatewayHandlerIntegrationTest 
         setUpTestWithoutSignUp(sessionId, withScope());
 
         String code = redis.generateAndSaveEmailCode(EMAIL_ADDRESS, 2, emailNotificationType);
-        VerifyCodeRequest codeRequest = new VerifyCodeRequest(emailNotificationType, code);
+        VerifyCodeRequest codeRequest =
+                new VerifyCodeRequest(emailNotificationType, code, null, null);
 
         TimeUnit.SECONDS.sleep(3);
 
@@ -161,7 +167,8 @@ public class VerifyCodeIntegrationTest extends ApiGatewayHandlerIntegrationTest 
             NotificationType emailNotificationType) throws Json.JsonException {
         setUpTestWithoutSignUp(sessionId, withScope());
         String code = redis.generateAndSaveEmailCode(EMAIL_ADDRESS, 900, emailNotificationType);
-        VerifyCodeRequest codeRequest = new VerifyCodeRequest(emailNotificationType, code);
+        VerifyCodeRequest codeRequest =
+                new VerifyCodeRequest(emailNotificationType, code, null, null);
 
         var response =
                 makeRequest(
@@ -191,7 +198,7 @@ public class VerifyCodeIntegrationTest extends ApiGatewayHandlerIntegrationTest 
         for (int i = 0; i < ConfigurationService.getInstance().getCodeMaxRetries(); i++) {
             redis.increaseMfaCodeAttemptsCount(EMAIL_ADDRESS);
         }
-        var codeRequest = new VerifyCodeRequest(VERIFY_EMAIL, "123456");
+        var codeRequest = new VerifyCodeRequest(VERIFY_EMAIL, "123456", null, null);
 
         var response =
                 makeRequest(
@@ -223,7 +230,8 @@ public class VerifyCodeIntegrationTest extends ApiGatewayHandlerIntegrationTest 
         var codeBlockedKeyPrefix = CODE_BLOCKED_KEY_PREFIX + codeRequestType;
         redis.blockMfaCodesForEmail(EMAIL_ADDRESS, codeBlockedKeyPrefix);
 
-        var codeRequest = new VerifyCodeRequest(VERIFY_CHANGE_HOW_GET_SECURITY_CODES, "123456");
+        var codeRequest =
+                new VerifyCodeRequest(VERIFY_CHANGE_HOW_GET_SECURITY_CODES, "123456", null, null);
 
         var response =
                 makeRequest(
@@ -244,7 +252,8 @@ public class VerifyCodeIntegrationTest extends ApiGatewayHandlerIntegrationTest 
         for (int i = 0; i < 6; i++) {
             redis.increaseMfaCodeAttemptsCount(EMAIL_ADDRESS);
         }
-        var codeRequest = new VerifyCodeRequest(VERIFY_CHANGE_HOW_GET_SECURITY_CODES, "123456");
+        var codeRequest =
+                new VerifyCodeRequest(VERIFY_CHANGE_HOW_GET_SECURITY_CODES, "123456", null, null);
 
         var response =
                 makeRequest(
@@ -271,7 +280,7 @@ public class VerifyCodeIntegrationTest extends ApiGatewayHandlerIntegrationTest 
         for (int i = 0; i < 6; i++) {
             redis.increaseMfaCodeAttemptsCount(EMAIL_ADDRESS);
         }
-        var codeRequest = new VerifyCodeRequest(RESET_PASSWORD_WITH_CODE, "123456");
+        var codeRequest = new VerifyCodeRequest(RESET_PASSWORD_WITH_CODE, "123456", null, null);
 
         var response =
                 makeRequest(
@@ -307,7 +316,7 @@ public class VerifyCodeIntegrationTest extends ApiGatewayHandlerIntegrationTest 
         for (int i = 0; i < 6; i++) {
             redis.increaseMfaCodeAttemptsCount(EMAIL_ADDRESS);
         }
-        var codeRequest = new VerifyCodeRequest(MFA_SMS, "123456", journeyType);
+        var codeRequest = new VerifyCodeRequest(MFA_SMS, "123456", journeyType, null);
 
         var response =
                 makeRequest(
@@ -334,7 +343,8 @@ public class VerifyCodeIntegrationTest extends ApiGatewayHandlerIntegrationTest 
         for (int i = 0; i < 5; i++) {
             redis.increaseMfaCodeAttemptsCount(EMAIL_ADDRESS);
         }
-        var codeRequest = new VerifyCodeRequest(MFA_SMS, "123456", JourneyType.REAUTHENTICATION);
+        var codeRequest =
+                new VerifyCodeRequest(MFA_SMS, "123456", JourneyType.REAUTHENTICATION, null);
 
         var response =
                 makeRequest(
@@ -363,7 +373,7 @@ public class VerifyCodeIntegrationTest extends ApiGatewayHandlerIntegrationTest 
         userStore.updateTermsAndConditions(EMAIL_ADDRESS, "1.0");
 
         var code = redis.generateAndSaveMfaCode(EMAIL_ADDRESS.concat(PHONE_NUMBER), 900);
-        var codeRequest = new VerifyCodeRequest(NotificationType.MFA_SMS, code, journeyType);
+        var codeRequest = new VerifyCodeRequest(NotificationType.MFA_SMS, code, journeyType, null);
 
         var response =
                 makeRequest(
@@ -378,6 +388,45 @@ public class VerifyCodeIntegrationTest extends ApiGatewayHandlerIntegrationTest 
         assertThat(
                 authSessionExtension.getSession(sessionId).get().getVerifiedMfaMethodType(),
                 equalTo(MFAMethodType.SMS));
+    }
+
+    private static Stream<MFAMethod> chosenMethods() {
+        return Stream.of(DEFAULT_SMS_METHOD, BACKUP_SMS_METHOD);
+    }
+
+    @ParameterizedTest
+    @MethodSource("chosenMethods")
+    void shouldReturn204WhenUserChoosesIdentifiedMfaMethod(MFAMethod chosenMethod)
+            throws Exception {
+        var internalCommonSubjectId =
+                ClientSubjectHelper.calculatePairwiseIdentifier(
+                        SUBJECT.getValue(), INTERNAl_SECTOR_HOST, SaltHelper.generateNewSalt());
+        authSessionExtension.addInternalCommonSubjectIdToSession(
+                this.sessionId, internalCommonSubjectId);
+        setUpTestWithoutSignUp(sessionId, withScope());
+        userStore.signUp(EMAIL_ADDRESS, "password", SUBJECT);
+        userStore.addMfaMethodSupportingMultiple(EMAIL_ADDRESS, DEFAULT_SMS_METHOD);
+        userStore.addMfaMethodSupportingMultiple(EMAIL_ADDRESS, BACKUP_SMS_METHOD);
+        userStore.setMfaMethodsMigrated(EMAIL_ADDRESS, true);
+        userStore.updateTermsAndConditions(EMAIL_ADDRESS, "1.0");
+
+        var code =
+                redis.generateAndSaveMfaCode(
+                        EMAIL_ADDRESS.concat(chosenMethod.getDestination()), 900);
+        var codeRequest =
+                new VerifyCodeRequest(
+                        NotificationType.MFA_SMS,
+                        code,
+                        JourneyType.SIGN_IN,
+                        chosenMethod.getMfaIdentifier());
+
+        var response =
+                makeRequest(
+                        Optional.of(codeRequest),
+                        constructFrontendHeaders(sessionId, CLIENT_SESSION_ID),
+                        Map.of());
+
+        assertThat(response, hasStatus(204));
     }
 
     @ParameterizedTest
@@ -396,7 +445,7 @@ public class VerifyCodeIntegrationTest extends ApiGatewayHandlerIntegrationTest 
         userStore.updateTermsAndConditions(EMAIL_ADDRESS, "1.0");
 
         var code = redis.generateAndSaveMfaCode(EMAIL_ADDRESS.concat(PHONE_NUMBER), 900);
-        var codeRequest = new VerifyCodeRequest(NotificationType.MFA_SMS, code, journeyType);
+        var codeRequest = new VerifyCodeRequest(NotificationType.MFA_SMS, code, journeyType, null);
 
         var response =
                 makeRequest(
@@ -424,7 +473,7 @@ public class VerifyCodeIntegrationTest extends ApiGatewayHandlerIntegrationTest 
         var code = redis.generateAndSaveMfaCode(EMAIL_ADDRESS.concat(PHONE_NUMBER), 900);
         var codeRequest =
                 new VerifyCodeRequest(
-                        NotificationType.MFA_SMS, code, JourneyType.PASSWORD_RESET_MFA);
+                        NotificationType.MFA_SMS, code, JourneyType.PASSWORD_RESET_MFA, null);
 
         var response =
                 makeRequest(
@@ -456,7 +505,8 @@ public class VerifyCodeIntegrationTest extends ApiGatewayHandlerIntegrationTest 
         userStore.updateTermsAndConditions(EMAIL_ADDRESS, "1.0");
 
         redis.generateAndSaveMfaCode(EMAIL_ADDRESS.concat(PHONE_NUMBER).concat("123123"), 900);
-        var codeRequest = new VerifyCodeRequest(NotificationType.MFA_SMS, "123456", journeyType);
+        var codeRequest =
+                new VerifyCodeRequest(NotificationType.MFA_SMS, "123456", journeyType, null);
 
         var response =
                 makeRequest(
