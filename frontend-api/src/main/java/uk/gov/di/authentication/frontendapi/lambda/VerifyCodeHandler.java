@@ -242,8 +242,8 @@ public class VerifyCodeHandler extends BaseFrontendHandler<VerifyCodeRequest>
                             journeyType,
                             code,
                             codeRequest.code(),
-                            codeStorageService,
-                            authSession.getEmailAddress(),
+                            authenticationAttemptsService,
+                            authSession.getInternalCommonSubjectId(),
                             configurationService);
 
             if (errorResponse.stream().anyMatch(ErrorResponse.ERROR_1002::equals)) {
@@ -429,8 +429,16 @@ public class VerifyCodeHandler extends BaseFrontendHandler<VerifyCodeRequest>
         LOG.info("Email is blocked");
     }
 
-    private void resetIncorrectMfaCodeAttemptsCount(AuthSessionItem authSession) {
-        codeStorageService.deleteIncorrectMfaCodeAttemptsCount(authSession.getEmailAddress());
+    private void resetIncorrectMfaCodeAttemptsCount(
+            AuthSessionItem authSession,
+            JourneyType journeyType,
+            NotificationType notificationType) {
+        authenticationAttemptsService.deleteCount(
+                authSession.getInternalCommonSubjectId(),
+                journeyType,
+                notificationType.isForPhoneNumber()
+                        ? CountType.ENTER_SMS_CODE
+                        : CountType.ENTER_EMAIL_CODE);
         LOG.info("IncorrectMfaCodeAttemptsCount reset");
     }
 
@@ -446,7 +454,12 @@ public class VerifyCodeHandler extends BaseFrontendHandler<VerifyCodeRequest>
         var authSession = userContext.getAuthSession();
         var notificationType = codeRequest.notificationType();
         int loginFailureCount =
-                codeStorageService.getIncorrectMfaCodeAttemptsCount(authSession.getEmailAddress());
+                authenticationAttemptsService.getCount(
+                        authSession.getInternalCommonSubjectId(),
+                        journeyType,
+                        notificationType.isForPhoneNumber()
+                                ? CountType.ENTER_SMS_CODE
+                                : CountType.ENTER_EMAIL_CODE);
         var clientId = client.getClientID();
         var levelOfConfidence =
                 Optional.ofNullable(authSession.getRequestedLevelOfConfidence()).orElse(NONE);
@@ -568,11 +581,11 @@ public class VerifyCodeHandler extends BaseFrontendHandler<VerifyCodeRequest>
                         || journeyType != JourneyType.REAUTHENTICATION) {
                     blockCodeForSession(authSession, codeBlockedKeyPrefix);
                 }
-                resetIncorrectMfaCodeAttemptsCount(authSession);
+                resetIncorrectMfaCodeAttemptsCount(authSession, journeyType, notificationType);
                 auditableEvent = FrontendAuditableEvent.AUTH_CODE_MAX_RETRIES_REACHED;
                 break;
             case ERROR_1033:
-                resetIncorrectMfaCodeAttemptsCount(authSession);
+                resetIncorrectMfaCodeAttemptsCount(authSession, journeyType, notificationType);
                 auditableEvent = FrontendAuditableEvent.AUTH_CODE_MAX_RETRIES_REACHED;
                 break;
             default:
@@ -580,7 +593,12 @@ public class VerifyCodeHandler extends BaseFrontendHandler<VerifyCodeRequest>
                 break;
         }
         var loginFailureCount =
-                codeStorageService.getIncorrectMfaCodeAttemptsCount(authSession.getEmailAddress());
+                authenticationAttemptsService.getCount(
+                        authSession.getInternalCommonSubjectId(),
+                        journeyType,
+                        notificationType.isForPhoneNumber()
+                                ? CountType.ENTER_SMS_CODE
+                                : CountType.ENTER_EMAIL_CODE);
         var metadataPairArray =
                 metadataPairs(notificationType, journeyType, codeRequest, loginFailureCount, true);
         auditService.submitAuditEvent(auditableEvent, auditContext, metadataPairArray);

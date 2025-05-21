@@ -14,6 +14,7 @@ import uk.gov.di.authentication.frontendapi.entity.PhoneNumberRequest;
 import uk.gov.di.authentication.shared.entity.AuthSessionItem;
 import uk.gov.di.authentication.shared.entity.ClientRegistry;
 import uk.gov.di.authentication.shared.entity.CodeRequestType;
+import uk.gov.di.authentication.shared.entity.CountType;
 import uk.gov.di.authentication.shared.entity.ErrorResponse;
 import uk.gov.di.authentication.shared.entity.JourneyType;
 import uk.gov.di.authentication.shared.entity.NotificationType;
@@ -23,6 +24,7 @@ import uk.gov.di.authentication.shared.entity.mfa.MFAMethodType;
 import uk.gov.di.authentication.shared.helpers.CommonTestVariables;
 import uk.gov.di.authentication.shared.helpers.IdGenerator;
 import uk.gov.di.authentication.shared.services.AuditService;
+import uk.gov.di.authentication.shared.services.AuthenticationAttemptsService;
 import uk.gov.di.authentication.shared.services.AuthenticationService;
 import uk.gov.di.authentication.shared.services.AwsSqsClient;
 import uk.gov.di.authentication.shared.services.CodeStorageService;
@@ -69,6 +71,8 @@ class PhoneNumberCodeProcessorTest {
     private final AwsSqsClient sqsClient = mock(AwsSqsClient.class);
     private final DynamoAccountModifiersService accountModifiersService =
             mock(DynamoAccountModifiersService.class);
+    private final AuthenticationAttemptsService authenticationAttemptsService =
+            mock(AuthenticationAttemptsService.class);
     private static final String VALID_CODE = "123456";
     private static final String INVALID_CODE = "826272";
     private static final String PERSISTENT_ID = "some-persistent-session-id";
@@ -434,11 +438,13 @@ class PhoneNumberCodeProcessorTest {
                         authenticationService,
                         auditService,
                         accountModifiersService,
-                        sqsClient);
+                        sqsClient,
+                        authenticationAttemptsService);
     }
 
     public void setUpPhoneNumberCodeRetryLimitExceeded(CodeRequest codeRequest) {
-        when(codeStorageService.getIncorrectMfaCodeAttemptsCount(CommonTestVariables.EMAIL))
+        when(authenticationAttemptsService.getCount(
+                        INTERNAL_SUB_ID, codeRequest.getJourneyType(), CountType.ENTER_SMS_CODE))
                 .thenReturn(6);
         when(userContext.getSession()).thenReturn(session);
         when(userContext.getAuthSession()).thenReturn(authSession);
@@ -459,7 +465,8 @@ class PhoneNumberCodeProcessorTest {
                         authenticationService,
                         auditService,
                         accountModifiersService,
-                        sqsClient);
+                        sqsClient,
+                        authenticationAttemptsService);
     }
 
     public void setUpBlockedPhoneNumberCode(
@@ -483,7 +490,8 @@ class PhoneNumberCodeProcessorTest {
                         authenticationService,
                         auditService,
                         accountModifiersService,
-                        sqsClient);
+                        sqsClient,
+                        authenticationAttemptsService);
     }
 
     private static Stream<Arguments> codeRequestTypes() {

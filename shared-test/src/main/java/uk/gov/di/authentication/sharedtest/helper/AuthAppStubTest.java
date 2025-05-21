@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import uk.gov.di.authentication.entity.CodeRequest;
 import uk.gov.di.authentication.frontendapi.validation.AuthAppCodeProcessor;
 import uk.gov.di.authentication.shared.services.AuditService;
+import uk.gov.di.authentication.shared.services.AuthenticationAttemptsService;
 import uk.gov.di.authentication.shared.services.CodeStorageService;
 import uk.gov.di.authentication.shared.services.ConfigurationService;
 import uk.gov.di.authentication.shared.services.DynamoAccountModifiersService;
@@ -40,7 +41,8 @@ class AuthAppStubTest {
                         99999,
                         mock(CodeRequest.class),
                         mock(AuditService.class),
-                        mock(DynamoAccountModifiersService.class));
+                        mock(DynamoAccountModifiersService.class),
+                        mock(AuthenticationAttemptsService.class));
     }
 
     @Test

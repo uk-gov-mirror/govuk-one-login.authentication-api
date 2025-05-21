@@ -4,11 +4,15 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import uk.gov.di.authentication.frontendapi.domain.FrontendAuditableEvent;
 import uk.gov.di.authentication.shared.domain.AuditableEvent;
+import uk.gov.di.authentication.shared.entity.CountType;
 import uk.gov.di.authentication.shared.entity.ErrorResponse;
+import uk.gov.di.authentication.shared.entity.JourneyType;
 import uk.gov.di.authentication.shared.entity.mfa.MFAMethodType;
 import uk.gov.di.authentication.shared.services.AuditService;
+import uk.gov.di.authentication.shared.services.AuthenticationAttemptsService;
 import uk.gov.di.authentication.shared.services.AuthenticationService;
 import uk.gov.di.authentication.shared.services.CodeStorageService;
+import uk.gov.di.authentication.shared.services.ConfigurationService;
 import uk.gov.di.authentication.shared.services.DynamoAccountModifiersService;
 import uk.gov.di.authentication.shared.state.UserContext;
 
@@ -26,6 +30,8 @@ public abstract class MfaCodeProcessor {
     private final UserContext userContext;
     protected final AuthenticationService dynamoService;
     protected final AuditService auditService;
+    protected final AuthenticationAttemptsService authenticationAttemptsService;
+    protected final ConfigurationService configurationService;
 
     MfaCodeProcessor(
             UserContext userContext,
@@ -33,7 +39,9 @@ public abstract class MfaCodeProcessor {
             int maxRetries,
             AuthenticationService dynamoService,
             AuditService auditService,
-            DynamoAccountModifiersService accountModifiersService) {
+            DynamoAccountModifiersService accountModifiersService,
+            AuthenticationAttemptsService authenticationAttemptsService,
+            ConfigurationService configurationService) {
         this.emailAddress = userContext.getAuthSession().getEmailAddress();
         this.userContext = userContext;
         this.codeStorageService = codeStorageService;
@@ -41,24 +49,42 @@ public abstract class MfaCodeProcessor {
         this.dynamoService = dynamoService;
         this.auditService = auditService;
         this.accountModifiersService = accountModifiersService;
+        this.authenticationAttemptsService = authenticationAttemptsService;
+        this.configurationService = configurationService;
     }
 
     boolean isCodeBlockedForSession(String codeBlockedKeyPrefix) {
         return codeStorageService.isBlockedForEmail(emailAddress, codeBlockedKeyPrefix);
     }
 
-    boolean hasExceededRetryLimit(MFAMethodType mfaMethodType) {
+    boolean hasExceededRetryLimit(MFAMethodType mfaMethodType, JourneyType journeyType) {
         LOG.info("Max retries: {}", maxRetries);
-        return codeStorageService.getIncorrectMfaCodeAttemptsCount(emailAddress, mfaMethodType)
+        return authenticationAttemptsService.getCount(
+                        userContext.getAuthSession().getInternalCommonSubjectId(),
+                        journeyType,
+                        mfaMethodType.equals(MFAMethodType.AUTH_APP)
+                                ? CountType.ENTER_AUTH_APP_CODE
+                                : CountType.ENTER_SMS_CODE)
                 >= maxRetries;
     }
 
-    void incrementRetryCount(MFAMethodType mfaMethodType) {
-        codeStorageService.increaseIncorrectMfaCodeAttemptsCount(emailAddress, mfaMethodType);
+    void incrementRetryCount(MFAMethodType mfaMethodType, JourneyType journeyType) {
+        authenticationAttemptsService.createOrIncrementCount(
+                userContext.getAuthSession().getInternalCommonSubjectId(),
+                configurationService.getLockoutCountTTL(),
+                journeyType,
+                mfaMethodType.equals(MFAMethodType.AUTH_APP)
+                        ? CountType.ENTER_AUTH_APP_CODE
+                        : CountType.ENTER_SMS_CODE);
     }
 
-    void resetCodeIncorrectEntryCount(MFAMethodType mfaMethodType) {
-        codeStorageService.deleteIncorrectMfaCodeAttemptsCount(emailAddress, mfaMethodType);
+    void resetCodeIncorrectEntryCount(MFAMethodType mfaMethodType, JourneyType journeyType) {
+        authenticationAttemptsService.deleteCount(
+                userContext.getAuthSession().getInternalCommonSubjectId(),
+                journeyType,
+                mfaMethodType.equals(MFAMethodType.AUTH_APP)
+                        ? CountType.ENTER_AUTH_APP_CODE
+                        : CountType.ENTER_SMS_CODE);
     }
 
     void submitAuditEvent(

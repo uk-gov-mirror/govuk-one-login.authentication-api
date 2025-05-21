@@ -18,6 +18,7 @@ import uk.gov.di.authentication.shared.helpers.PhoneNumberHelper;
 import uk.gov.di.authentication.shared.helpers.ValidationHelper;
 import uk.gov.di.authentication.shared.serialization.Json;
 import uk.gov.di.authentication.shared.services.AuditService;
+import uk.gov.di.authentication.shared.services.AuthenticationAttemptsService;
 import uk.gov.di.authentication.shared.services.AuthenticationService;
 import uk.gov.di.authentication.shared.services.AwsSqsClient;
 import uk.gov.di.authentication.shared.services.CodeStorageService;
@@ -48,14 +49,17 @@ public class PhoneNumberCodeProcessor extends MfaCodeProcessor {
             CodeRequest codeRequest,
             AuthenticationService dynamoService,
             AuditService auditService,
-            DynamoAccountModifiersService dynamoAccountModifiersService) {
+            DynamoAccountModifiersService dynamoAccountModifiersService,
+            AuthenticationAttemptsService authenticationAttemptsService) {
         super(
                 userContext,
                 codeStorageService,
                 configurationService.getCodeMaxRetries(),
                 dynamoService,
                 auditService,
-                dynamoAccountModifiersService);
+                dynamoAccountModifiersService,
+                authenticationAttemptsService,
+                configurationService);
         this.userContext = userContext;
         this.configurationService = configurationService;
         this.codeRequest = codeRequest;
@@ -74,14 +78,17 @@ public class PhoneNumberCodeProcessor extends MfaCodeProcessor {
             AuthenticationService dynamoService,
             AuditService auditService,
             DynamoAccountModifiersService dynamoAccountModifiersService,
-            AwsSqsClient sqsClient) {
+            AwsSqsClient sqsClient,
+            AuthenticationAttemptsService authenticationAttemptsService) {
         super(
                 userContext,
                 codeStorageService,
                 configurationService.getCodeMaxRetries(),
                 dynamoService,
                 auditService,
-                dynamoAccountModifiersService);
+                dynamoAccountModifiersService,
+                authenticationAttemptsService,
+                configurationService);
         this.userContext = userContext;
         this.configurationService = configurationService;
         this.codeRequest = codeRequest;
@@ -135,8 +142,8 @@ public class PhoneNumberCodeProcessor extends MfaCodeProcessor {
                         journeyType,
                         storedCode,
                         codeRequest.getCode(),
-                        codeStorageService,
-                        emailAddress,
+                        authenticationAttemptsService,
+                        userContext.getAuthSession().getInternalCommonSubjectId(),
                         configurationService);
 
         if (errorResponse.isEmpty()) {

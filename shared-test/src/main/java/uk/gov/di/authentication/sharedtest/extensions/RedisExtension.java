@@ -14,7 +14,6 @@ import uk.gov.di.authentication.shared.entity.CredentialTrustLevel;
 import uk.gov.di.authentication.shared.entity.NotificationType;
 import uk.gov.di.authentication.shared.entity.Session;
 import uk.gov.di.authentication.shared.entity.VectorOfTrust;
-import uk.gov.di.authentication.shared.entity.mfa.MFAMethodType;
 import uk.gov.di.authentication.shared.helpers.IdGenerator;
 import uk.gov.di.authentication.shared.serialization.Json;
 import uk.gov.di.authentication.shared.services.CodeGeneratorService;
@@ -71,18 +70,6 @@ public class RedisExtension
         redis.saveWithExpiry("state:" + state.getValue(), clientSessionId, 3600);
     }
 
-    public void incrementPasswordCount(String email) {
-        codeStorageService.increaseIncorrectPasswordCount(email);
-    }
-
-    public void incrementPasswordCountReauthJourney(String email) {
-        codeStorageService.increaseIncorrectPasswordCountReauthJourney(email);
-    }
-
-    public void incrementEmailCount(String email) {
-        codeStorageService.increaseIncorrectEmailCount(email);
-    }
-
     public void setSessionCredentialTrustLevel(
             String sessionId, CredentialTrustLevel credentialTrustLevel) throws Json.JsonException {
         Session session = objectMapper.readValue(redis.getValue(sessionId), Session.class);
@@ -136,21 +123,21 @@ public class RedisExtension
         return codeStorageService.isBlockedForEmail(email, codeBlockedKeyPrefix);
     }
 
-    public int getMfaCodeAttemptsCount(String email) {
-        return codeStorageService.getIncorrectMfaCodeAttemptsCount(email);
-    }
-
-    public int getMfaCodeAttemptsCount(String email, MFAMethodType mfaMethodType) {
-        return codeStorageService.getIncorrectMfaCodeAttemptsCount(email, mfaMethodType);
-    }
-
-    public void increaseMfaCodeAttemptsCount(String email, MFAMethodType mfaMethodType) {
-        codeStorageService.increaseIncorrectMfaCodeAttemptsCount(email, mfaMethodType);
-    }
-
-    public void increaseMfaCodeAttemptsCount(String email) {
-        codeStorageService.increaseIncorrectMfaCodeAttemptsCount(email);
-    }
+    //    public int getMfaCodeAttemptsCount(String email) {
+    //        return codeStorageService.getIncorrectMfaCodeAttemptsCount(email);
+    //    }
+    //
+    //    public int getMfaCodeAttemptsCount(String email, MFAMethodType mfaMethodType) {
+    //        return codeStorageService.getIncorrectMfaCodeAttemptsCount(email, mfaMethodType);
+    //    }
+    //
+    //    public void increaseMfaCodeAttemptsCount(String email, MFAMethodType mfaMethodType) {
+    //        codeStorageService.increaseIncorrectMfaCodeAttemptsCount(email, mfaMethodType);
+    //    }
+    //
+    //    public void increaseMfaCodeAttemptsCount(String email) {
+    //        codeStorageService.increaseIncorrectMfaCodeAttemptsCount(email);
+    //    }
 
     public void addToRedis(String key, String value, Long expiry) {
         redis.saveWithExpiry(key, value, expiry);

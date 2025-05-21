@@ -26,14 +26,10 @@ public class CodeStorageService {
     private static final String PHONE_NUMBER_KEY_PREFIX = "phone-number-code:";
     private static final String MFA_KEY_PREFIX = "mfa-code:";
 
-    private static final String MULTIPLE_INCORRECT_MFA_CODES_KEY_PREFIX =
-            "multiple-incorrect-mfa-codes:";
     private static final String CODE_BLOCKED_VALUE = "blocked";
     private static final String RESET_PASSWORD_KEY_PREFIX = "reset-password-code:";
     private static final String MULTIPLE_INCORRECT_PASSWORDS_PREFIX =
             "multiple-incorrect-passwords:";
-    private static final String MULTIPLE_INCORRECT_REAUTH_EMAIL_PREFIX =
-            "multiple-incorrect-reauth-email:";
     private static final String MULTIPLE_INCORRECT_PASSWORDS_REAUTH_PREFIX =
             "multiple-incorrect-passwords-reauth:";
 
@@ -52,42 +48,51 @@ public class CodeStorageService {
         this.redisConnectionService = redisConnectionService;
     }
 
-    public void increaseIncorrectMfaCodeAttemptsCount(String email) {
-        increaseCount(
-                email,
-                MULTIPLE_INCORRECT_MFA_CODES_KEY_PREFIX,
-                configurationService.getLockoutCountTTL());
-    }
-
-    public void increaseIncorrectMfaCodeAttemptsCountAccountCreation(String email) {
-        increaseCount(
-                email,
-                MULTIPLE_INCORRECT_MFA_CODES_KEY_PREFIX,
-                configurationService.getAccountCreationLockoutCountTTL());
-    }
-
-    public int getIncorrectMfaCodeAttemptsCount(String email) {
-        return getCount(email, MULTIPLE_INCORRECT_MFA_CODES_KEY_PREFIX);
-    }
-
-    public void deleteIncorrectMfaCodeAttemptsCount(String email) {
-        deleteCount(email, MULTIPLE_INCORRECT_MFA_CODES_KEY_PREFIX);
-    }
-
-    public void increaseIncorrectMfaCodeAttemptsCount(String email, MFAMethodType mfaMethodType) {
-        String prefix = MULTIPLE_INCORRECT_MFA_CODES_KEY_PREFIX + mfaMethodType.getValue();
-        increaseCount(email, prefix, configurationService.getLockoutCountTTL());
-    }
-
-    public int getIncorrectMfaCodeAttemptsCount(String email, MFAMethodType mfaMethodType) {
-        var prefix = MULTIPLE_INCORRECT_MFA_CODES_KEY_PREFIX + mfaMethodType.getValue();
-        return getCount(email, prefix);
-    }
-
-    public void deleteIncorrectMfaCodeAttemptsCount(String email, MFAMethodType mfaMethodType) {
-        String prefix = MULTIPLE_INCORRECT_MFA_CODES_KEY_PREFIX + mfaMethodType.getValue();
-        deleteCount(email, prefix);
-    }
+    // TODO FIND and comment
+    //    public void increaseIncorrectMfaCodeAttemptsCount(String email) {
+    //        increaseCount(
+    //                email,
+    //                MULTIPLE_INCORRECT_MFA_CODES_KEY_PREFIX,
+    //                configurationService.getLockoutCountTTL());
+    //    }
+    //
+    // TODO FIND and comment
+    //    public void increaseIncorrectMfaCodeAttemptsCountAccountCreation(String email) {
+    //        increaseCount(
+    //                email,
+    //                MULTIPLE_INCORRECT_MFA_CODES_KEY_PREFIX,
+    //                configurationService.getAccountCreationLockoutCountTTL());
+    //    }
+    //
+    // TODO FIND and comment
+    //    public int getIncorrectMfaCodeAttemptsCount(String email) {
+    //        return getCount(email, MULTIPLE_INCORRECT_MFA_CODES_KEY_PREFIX);
+    //    }
+    //
+    // TODO FIND and comment
+    //    public void deleteIncorrectMfaCodeAttemptsCount(String email) {
+    //        deleteCount(email, MULTIPLE_INCORRECT_MFA_CODES_KEY_PREFIX);
+    //    }
+    //
+    // TODO FIND and comment
+    //    public void increaseIncorrectMfaCodeAttemptsCount(String email, MFAMethodType
+    // mfaMethodType) {
+    //        String prefix = MULTIPLE_INCORRECT_MFA_CODES_KEY_PREFIX + mfaMethodType.getValue();
+    //        increaseCount(email, prefix, configurationService.getLockoutCountTTL());
+    //    }
+    //
+    // TODO FIND and comment
+    //    public int getIncorrectMfaCodeAttemptsCount(String email, MFAMethodType mfaMethodType) {
+    //        var prefix = MULTIPLE_INCORRECT_MFA_CODES_KEY_PREFIX + mfaMethodType.getValue();
+    //        return getCount(email, prefix);
+    //    }
+    //
+    // TODO FIND and comment
+    //    public void deleteIncorrectMfaCodeAttemptsCount(String email, MFAMethodType mfaMethodType)
+    // {
+    //        String prefix = MULTIPLE_INCORRECT_MFA_CODES_KEY_PREFIX + mfaMethodType.getValue();
+    //        deleteCount(email, prefix);
+    //    }
 
     public void increaseIncorrectPasswordCount(String email) {
         increaseCount(
@@ -102,21 +107,6 @@ public class CodeStorageService {
 
     public void deleteIncorrectPasswordCount(String email) {
         deleteCount(email, MULTIPLE_INCORRECT_PASSWORDS_PREFIX);
-    }
-
-    public void increaseIncorrectEmailCount(String email) {
-        increaseCount(
-                email,
-                MULTIPLE_INCORRECT_REAUTH_EMAIL_PREFIX,
-                configurationService.getLockoutCountTTL());
-    }
-
-    public int getIncorrectEmailCount(String email) {
-        return getCount(email, MULTIPLE_INCORRECT_REAUTH_EMAIL_PREFIX);
-    }
-
-    public void deleteIncorrectEmailCount(String email) {
-        deleteCount(email, MULTIPLE_INCORRECT_REAUTH_EMAIL_PREFIX);
     }
 
     public void increaseIncorrectPasswordCountReauthJourney(String email) {

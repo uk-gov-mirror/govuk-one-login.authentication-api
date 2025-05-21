@@ -11,6 +11,7 @@ import uk.gov.di.authentication.entity.VerifyMfaCodeRequest;
 import uk.gov.di.authentication.frontendapi.domain.FrontendAuditableEvent;
 import uk.gov.di.authentication.shared.entity.AuthSessionItem;
 import uk.gov.di.authentication.shared.entity.CodeRequestType;
+import uk.gov.di.authentication.shared.entity.CountType;
 import uk.gov.di.authentication.shared.entity.ErrorResponse;
 import uk.gov.di.authentication.shared.entity.JourneyType;
 import uk.gov.di.authentication.shared.entity.Session;
@@ -22,6 +23,7 @@ import uk.gov.di.authentication.shared.helpers.CommonTestVariables;
 import uk.gov.di.authentication.shared.helpers.IdGenerator;
 import uk.gov.di.authentication.shared.helpers.NowHelper;
 import uk.gov.di.authentication.shared.services.AuditService;
+import uk.gov.di.authentication.shared.services.AuthenticationAttemptsService;
 import uk.gov.di.authentication.shared.services.CodeStorageService;
 import uk.gov.di.authentication.shared.services.ConfigurationService;
 import uk.gov.di.authentication.shared.services.DynamoAccountModifiersService;
@@ -60,6 +62,7 @@ class AuthAppCodeProcessorTest {
     AuditService mockAuditService;
     UserContext mockUserContext;
     DynamoAccountModifiersService mockAccountModifiersService;
+    AuthenticationAttemptsService mochAuthenticationAttemptsService;
     private Session session;
 
     private static final String AUTH_APP_SECRET =
@@ -98,6 +101,7 @@ class AuthAppCodeProcessorTest {
         this.mockAuditService = mock(AuditService.class);
         this.mockUserContext = mock(UserContext.class);
         this.mockAccountModifiersService = mock(DynamoAccountModifiersService.class);
+        this.mochAuthenticationAttemptsService = mock(AuthenticationAttemptsService.class);
         when(mockUserContext.getSession()).thenReturn(session);
         when(mockUserContext.getAuthSession()).thenReturn(authSession);
         when(mockDynamoService.getUserProfileByEmail(EMAIL))
@@ -180,7 +184,8 @@ class AuthAppCodeProcessorTest {
                         MAX_RETRIES,
                         codeRequest,
                         mockAuditService,
-                        mockAccountModifiersService);
+                        mockAccountModifiersService,
+                        mochAuthenticationAttemptsService);
 
         assertEquals(Optional.empty(), authAppCodeProcessor.validateCode());
     }
@@ -216,7 +221,8 @@ class AuthAppCodeProcessorTest {
                         MAX_RETRIES,
                         codeRequest,
                         mockAuditService,
-                        mockAccountModifiersService);
+                        mockAccountModifiersService,
+                        mochAuthenticationAttemptsService);
 
         assertEquals(Optional.of(ErrorResponse.ERROR_1081), authAppCodeProcessor.validateCode());
     }
@@ -243,7 +249,8 @@ class AuthAppCodeProcessorTest {
                         MAX_RETRIES,
                         codeRequest,
                         mockAuditService,
-                        mockAccountModifiersService);
+                        mockAccountModifiersService,
+                        mochAuthenticationAttemptsService);
 
         assertEquals(Optional.of(ErrorResponse.ERROR_1081), authAppCodeProcessor.validateCode());
     }
@@ -417,7 +424,8 @@ class AuthAppCodeProcessorTest {
                         MAX_RETRIES,
                         codeRequest,
                         mockAuditService,
-                        mockAccountModifiersService);
+                        mockAccountModifiersService,
+                        mochAuthenticationAttemptsService);
     }
 
     private void setUpBlockedUser(CodeRequest codeRequest, CodeRequestType codeRequestType) {
@@ -434,13 +442,17 @@ class AuthAppCodeProcessorTest {
                         MAX_RETRIES,
                         codeRequest,
                         mockAuditService,
-                        mockAccountModifiersService);
+                        mockAccountModifiersService,
+                        mochAuthenticationAttemptsService);
     }
 
     private void setUpRetryLimitExceededUser(CodeRequest codeRequest) {
         when(mockCodeStorageService.isBlockedForEmail(EMAIL, CODE_BLOCKED_KEY_PREFIX))
                 .thenReturn(false);
-        when(mockCodeStorageService.getIncorrectMfaCodeAttemptsCount(EMAIL, MFAMethodType.AUTH_APP))
+        when(mochAuthenticationAttemptsService.getCount(
+                        INTERNAL_SUB_ID,
+                        codeRequest.getJourneyType(),
+                        CountType.ENTER_AUTH_APP_CODE))
                 .thenReturn(MAX_RETRIES + 1);
 
         this.authAppCodeProcessor =
@@ -452,7 +464,8 @@ class AuthAppCodeProcessorTest {
                         MAX_RETRIES,
                         codeRequest,
                         mockAuditService,
-                        mockAccountModifiersService);
+                        mockAccountModifiersService,
+                        mochAuthenticationAttemptsService);
     }
 
     private void setUpNoAuthCodeForUser(CodeRequest codeRequest) {
@@ -470,7 +483,8 @@ class AuthAppCodeProcessorTest {
                         MAX_RETRIES,
                         codeRequest,
                         mockAuditService,
-                        mockAccountModifiersService);
+                        mockAccountModifiersService,
+                        mochAuthenticationAttemptsService);
     }
 
     private void setUpValidAuthCode(CodeRequest codeRequest) {
@@ -494,6 +508,7 @@ class AuthAppCodeProcessorTest {
                         MAX_RETRIES,
                         codeRequest,
                         mockAuditService,
-                        mockAccountModifiersService);
+                        mockAccountModifiersService,
+                        mochAuthenticationAttemptsService);
     }
 }

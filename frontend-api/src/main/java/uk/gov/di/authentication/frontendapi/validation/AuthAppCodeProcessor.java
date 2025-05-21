@@ -12,6 +12,7 @@ import uk.gov.di.authentication.shared.entity.mfa.MFAMethod;
 import uk.gov.di.authentication.shared.entity.mfa.MFAMethodType;
 import uk.gov.di.authentication.shared.helpers.NowHelper;
 import uk.gov.di.authentication.shared.services.AuditService;
+import uk.gov.di.authentication.shared.services.AuthenticationAttemptsService;
 import uk.gov.di.authentication.shared.services.AuthenticationService;
 import uk.gov.di.authentication.shared.services.CodeStorageService;
 import uk.gov.di.authentication.shared.services.ConfigurationService;
@@ -46,14 +47,17 @@ public class AuthAppCodeProcessor extends MfaCodeProcessor {
             int maxRetries,
             CodeRequest codeRequest,
             AuditService auditService,
-            DynamoAccountModifiersService accountModifiersService) {
+            DynamoAccountModifiersService accountModifiersService,
+            AuthenticationAttemptsService authenticationAttemptsService) {
         super(
                 userContext,
                 codeStorageService,
                 maxRetries,
                 dynamoService,
                 auditService,
-                accountModifiersService);
+                accountModifiersService,
+                authenticationAttemptsService,
+                configurationService);
         this.windowTime = configurationService.getAuthAppCodeWindowLength();
         this.allowedWindows = configurationService.getAuthAppCodeAllowedWindows();
         this.codeRequest = codeRequest;
@@ -61,8 +65,8 @@ public class AuthAppCodeProcessor extends MfaCodeProcessor {
 
     @Override
     public Optional<ErrorResponse> validateCode() {
-        var codeRequestType =
-                CodeRequestType.getCodeRequestType(AUTH_APP, codeRequest.getJourneyType());
+        JourneyType journeyType = codeRequest.getJourneyType();
+        var codeRequestType = CodeRequestType.getCodeRequestType(AUTH_APP, journeyType);
         var codeBlockedKeyPrefix = CODE_BLOCKED_KEY_PREFIX + codeRequestType;
 
         var nonRegistrationJourneyTypes =
@@ -77,16 +81,16 @@ public class AuthAppCodeProcessor extends MfaCodeProcessor {
         }
 
         if (codeRequestType.getJourneyType() != JourneyType.REAUTHENTICATION) {
-            incrementRetryCount(MFAMethodType.AUTH_APP);
+            incrementRetryCount(MFAMethodType.AUTH_APP, journeyType);
         }
 
-        if (hasExceededRetryLimit(MFAMethodType.AUTH_APP)) {
+        if (hasExceededRetryLimit(MFAMethodType.AUTH_APP, journeyType)) {
             LOG.info("Exceeded code retry limit");
             return Optional.of(ErrorResponse.ERROR_1042);
         }
 
         var authAppSecret =
-                nonRegistrationJourneyTypes.contains(codeRequest.getJourneyType())
+                nonRegistrationJourneyTypes.contains(journeyType)
                         ? getMfaCredentialValue().orElse(null)
                         : codeRequest.getProfileInformation();
 
@@ -95,7 +99,7 @@ public class AuthAppCodeProcessor extends MfaCodeProcessor {
             return Optional.of(ErrorResponse.ERROR_1081);
         }
 
-        if (!nonRegistrationJourneyTypes.contains(codeRequest.getJourneyType())
+        if (!nonRegistrationJourneyTypes.contains(journeyType)
                 && !base32.isInAlphabet(codeRequest.getProfileInformation())) {
             return Optional.of(ErrorResponse.ERROR_1041);
         }
@@ -105,7 +109,7 @@ public class AuthAppCodeProcessor extends MfaCodeProcessor {
             return Optional.of(ErrorResponse.ERROR_1043);
         }
         LOG.info("Auth code valid. Resetting code request count");
-        resetCodeIncorrectEntryCount(MFAMethodType.AUTH_APP);
+        resetCodeIncorrectEntryCount(MFAMethodType.AUTH_APP, journeyType);
 
         return Optional.empty();
     }

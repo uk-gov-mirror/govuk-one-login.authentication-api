@@ -114,16 +114,17 @@ public class VerifyMfaCodeHandler extends BaseFrontendHandler<VerifyMfaCodeReque
         super(VerifyMfaCodeRequest.class, configurationService);
         this.codeStorageService = new CodeStorageService(configurationService);
         this.auditService = new AuditService(configurationService);
+        this.authenticationAttemptsService =
+                new AuthenticationAttemptsService(configurationService);
         this.mfaCodeProcessorFactory =
                 new MfaCodeProcessorFactory(
                         configurationService,
                         codeStorageService,
                         new DynamoService(configurationService),
                         auditService,
-                        new DynamoAccountModifiersService(configurationService));
+                        new DynamoAccountModifiersService(configurationService),
+                        authenticationAttemptsService);
         this.cloudwatchMetricsService = new CloudwatchMetricsService(configurationService);
-        this.authenticationAttemptsService =
-                new AuthenticationAttemptsService(configurationService);
     }
 
     public VerifyMfaCodeHandler(
@@ -131,16 +132,17 @@ public class VerifyMfaCodeHandler extends BaseFrontendHandler<VerifyMfaCodeReque
         super(VerifyMfaCodeRequest.class, configurationService, redis);
         this.codeStorageService = new CodeStorageService(configurationService, redis);
         this.auditService = new AuditService(configurationService);
+        this.authenticationAttemptsService =
+                new AuthenticationAttemptsService(configurationService);
         this.mfaCodeProcessorFactory =
                 new MfaCodeProcessorFactory(
                         configurationService,
                         codeStorageService,
                         new DynamoService(configurationService),
                         auditService,
-                        new DynamoAccountModifiersService(configurationService));
+                        new DynamoAccountModifiersService(configurationService),
+                        authenticationAttemptsService);
         this.cloudwatchMetricsService = new CloudwatchMetricsService(configurationService);
-        this.authenticationAttemptsService =
-                new AuthenticationAttemptsService(configurationService);
     }
 
     @Override
@@ -194,7 +196,13 @@ public class VerifyMfaCodeHandler extends BaseFrontendHandler<VerifyMfaCodeReque
         try {
             String subjectID = userProfileMaybe.map(UserProfile::getSubjectID).orElse(null);
             return verifyCode(
-                    input, codeRequest, userContext, subjectID, maybeRpPairwiseId, client);
+                    input,
+                    codeRequest,
+                    userContext,
+                    subjectID,
+                    maybeRpPairwiseId,
+                    client,
+                    journeyType);
         } catch (Exception e) {
             LOG.error("Unexpected exception thrown");
             return generateApiGatewayProxyErrorResponse(400, ErrorResponse.ERROR_1001);
@@ -274,7 +282,8 @@ public class VerifyMfaCodeHandler extends BaseFrontendHandler<VerifyMfaCodeReque
             UserContext userContext,
             String subjectId,
             Optional<String> maybeRpPairwiseId,
-            ClientRegistry client) {
+            ClientRegistry client,
+            JourneyType journeyType) {
 
         var session = userContext.getSession();
         var authSession = userContext.getAuthSession();
@@ -320,6 +329,7 @@ public class VerifyMfaCodeHandler extends BaseFrontendHandler<VerifyMfaCodeReque
                     || errorResponse.equals(ErrorResponse.ERROR_1042)) {
                 blockCodeForSessionAndResetCountIfBlockDoesNotExist(
                         userContext.getAuthSession().getEmailAddress(),
+                        userContext.getAuthSession().getInternalCommonSubjectId(),
                         codeRequest.getMfaMethodType(),
                         codeRequest.getJourneyType());
             }
@@ -337,9 +347,9 @@ public class VerifyMfaCodeHandler extends BaseFrontendHandler<VerifyMfaCodeReque
                         JourneyType.REAUTHENTICATION,
                         CountType.ENTER_AUTH_APP_CODE);
             }
-            auditFailure(codeRequest, errorResponse, authSession, auditContext);
+            auditFailure(codeRequest, errorResponse, authSession, auditContext, journeyType);
         } else {
-            auditSuccess(codeRequest, authSession, auditContext);
+            auditSuccess(codeRequest, authSession, auditContext, journeyType);
             processSuccessfulCodeSession(
                     userContext.getAuthSession(),
                     input,
@@ -375,10 +385,14 @@ public class VerifyMfaCodeHandler extends BaseFrontendHandler<VerifyMfaCodeReque
     private void auditSuccess(
             VerifyMfaCodeRequest codeRequest,
             AuthSessionItem authSession,
-            AuditContext auditContext) {
+            AuditContext auditContext,
+            JourneyType journeyType) {
         var metadataPairs =
                 metadataPairsForEvent(
-                        AUTH_CODE_VERIFIED, authSession.getEmailAddress(), codeRequest);
+                        AUTH_CODE_VERIFIED,
+                        authSession.getInternalCommonSubjectId(),
+                        journeyType,
+                        codeRequest);
         auditService.submitAuditEvent(AUTH_CODE_VERIFIED, auditContext, metadataPairs);
     }
 
@@ -386,10 +400,15 @@ public class VerifyMfaCodeHandler extends BaseFrontendHandler<VerifyMfaCodeReque
             VerifyMfaCodeRequest codeRequest,
             ErrorResponse errorResponse,
             AuthSessionItem authSession,
-            AuditContext auditContext) {
+            AuditContext auditContext,
+            JourneyType journeyType) {
         var auditableEvent = errorResponseAsFrontendAuditableEvent(errorResponse);
         var metadataPairs =
-                metadataPairsForEvent(auditableEvent, authSession.getEmailAddress(), codeRequest);
+                metadataPairsForEvent(
+                        auditableEvent,
+                        authSession.getInternalCommonSubjectId(),
+                        journeyType,
+                        codeRequest);
         auditService.submitAuditEvent(auditableEvent, auditContext, metadataPairs);
     }
 
@@ -508,7 +527,10 @@ public class VerifyMfaCodeHandler extends BaseFrontendHandler<VerifyMfaCodeReque
     }
 
     private void blockCodeForSessionAndResetCountIfBlockDoesNotExist(
-            String emailAddress, MFAMethodType mfaMethodType, JourneyType journeyType) {
+            String emailAddress,
+            String internalCommonSubjectId,
+            MFAMethodType mfaMethodType,
+            JourneyType journeyType) {
 
         var codeRequestType = CodeRequestType.getCodeRequestType(mfaMethodType, journeyType);
         var codeBlockedKeyPrefix = CODE_BLOCKED_KEY_PREFIX + codeRequestType;
@@ -530,15 +552,19 @@ public class VerifyMfaCodeHandler extends BaseFrontendHandler<VerifyMfaCodeReque
                     emailAddress, codeBlockedKeyPrefix, blockDuration);
         }
 
-        if (mfaMethodType == MFAMethodType.SMS) {
-            codeStorageService.deleteIncorrectMfaCodeAttemptsCount(emailAddress);
-        } else {
-            codeStorageService.deleteIncorrectMfaCodeAttemptsCount(emailAddress, mfaMethodType);
-        }
+        authenticationAttemptsService.deleteCount(
+                internalCommonSubjectId,
+                journeyType,
+                mfaMethodType == MFAMethodType.SMS
+                        ? CountType.ENTER_SMS_CODE
+                        : CountType.ENTER_AUTH_APP_CODE);
     }
 
     private AuditService.MetadataPair[] metadataPairsForEvent(
-            FrontendAuditableEvent auditableEvent, String email, VerifyMfaCodeRequest codeRequest) {
+            FrontendAuditableEvent auditableEvent,
+            String internalCommonSubjectId,
+            JourneyType journeyType,
+            VerifyMfaCodeRequest codeRequest) {
         var methodType = codeRequest.getMfaMethodType();
         var basicMetadataPairs =
                 List.of(
@@ -553,11 +579,12 @@ public class VerifyMfaCodeHandler extends BaseFrontendHandler<VerifyMfaCodeReque
                             pair("attemptNoFailedAt", configurationService.getCodeMaxRetries()));
                     case AUTH_INVALID_CODE_SENT -> {
                         var failureCount =
-                                methodType.equals(MFAMethodType.AUTH_APP)
-                                        ? codeStorageService.getIncorrectMfaCodeAttemptsCount(
-                                                email, MFAMethodType.AUTH_APP)
-                                        : codeStorageService.getIncorrectMfaCodeAttemptsCount(
-                                                email);
+                                authenticationAttemptsService.getCount(
+                                        internalCommonSubjectId,
+                                        journeyType,
+                                        methodType.equals(MFAMethodType.AUTH_APP)
+                                                ? CountType.ENTER_AUTH_APP_CODE
+                                                : CountType.ENTER_SMS_CODE);
                         yield List.of(
                                 pair("loginFailureCount", failureCount),
                                 pair("MFACodeEntered", codeRequest.getCode()));

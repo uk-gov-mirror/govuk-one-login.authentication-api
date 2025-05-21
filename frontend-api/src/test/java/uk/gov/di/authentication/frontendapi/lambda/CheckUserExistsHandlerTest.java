@@ -41,6 +41,7 @@ import uk.gov.di.authentication.shared.helpers.NowHelper;
 import uk.gov.di.authentication.shared.serialization.Json;
 import uk.gov.di.authentication.shared.services.AuditService;
 import uk.gov.di.authentication.shared.services.AuthSessionService;
+import uk.gov.di.authentication.shared.services.AuthenticationAttemptsService;
 import uk.gov.di.authentication.shared.services.AuthenticationService;
 import uk.gov.di.authentication.shared.services.ClientService;
 import uk.gov.di.authentication.shared.services.ClientSessionService;
@@ -78,6 +79,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static uk.gov.di.authentication.frontendapi.domain.FrontendAuditableEvent.AUTH_ACCOUNT_TEMPORARILY_LOCKED;
+import static uk.gov.di.authentication.shared.entity.CountType.ENTER_AUTH_APP_CODE;
 import static uk.gov.di.authentication.shared.helpers.CommonTestVariables.CLIENT_SESSION_ID;
 import static uk.gov.di.authentication.shared.helpers.CommonTestVariables.DI_PERSISTENT_SESSION_ID;
 import static uk.gov.di.authentication.shared.helpers.CommonTestVariables.ENCODED_DEVICE_DETAILS;
@@ -101,6 +103,8 @@ class CheckUserExistsHandlerTest {
     private final ClientSessionService clientSessionService = mock(ClientSessionService.class);
     private final ClientService clientService = mock(ClientService.class);
     private final CodeStorageService codeStorageService = mock(CodeStorageService.class);
+    private final AuthenticationAttemptsService authenticationAttemptsService =
+            mock(AuthenticationAttemptsService.class);
     private CheckUserExistsHandler handler;
     private static final Json objectMapper = SerializationService.getInstance();
     private final Session session = new Session();
@@ -296,8 +300,10 @@ class CheckUserExistsHandlerTest {
             when(codeStorageService.getMfaCodeBlockTimeToLive(
                             EMAIL_ADDRESS, MFAMethodType.AUTH_APP, JourneyType.PASSWORD_RESET_MFA))
                     .thenReturn(15L);
-            when(codeStorageService.getIncorrectMfaCodeAttemptsCount(
-                            EMAIL_ADDRESS, MFAMethodType.AUTH_APP))
+            when(authenticationAttemptsService.getCount(
+                            authSession.getInternalCommonSubjectId(),
+                            JourneyType.SIGN_IN,
+                            ENTER_AUTH_APP_CODE))
                     .thenReturn(6);
             MFAMethod mfaMethod1 = verifiedMfaMethod(MFAMethodType.AUTH_APP, true);
             when(authenticationService.getUserCredentialsFromEmail(EMAIL_ADDRESS))

@@ -433,7 +433,7 @@ class ValidationHelperTest {
                         storedCode,
                         input,
                         codeStorageService,
-                        EMAIL_ADDRESS,
+                        CommonTestVariables.INTERNAL_COMMON_SUBJECT_ID,
                         configurationServiceMock));
     }
 
@@ -459,7 +459,7 @@ class ValidationHelperTest {
                 Optional.empty(),
                 input,
                 codeStorageService,
-                EMAIL_ADDRESS,
+                CommonTestVariables.INTERNAL_COMMON_SUBJECT_ID,
                 configurationServiceMock);
 
         if (journeyType != JourneyType.REAUTHENTICATION) {
