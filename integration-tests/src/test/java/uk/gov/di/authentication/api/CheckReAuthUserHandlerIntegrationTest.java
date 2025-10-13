@@ -16,7 +16,6 @@ import uk.gov.di.authentication.shared.entity.JourneyType;
 import uk.gov.di.authentication.shared.helpers.ClientSubjectHelper;
 import uk.gov.di.authentication.shared.helpers.NowHelper;
 import uk.gov.di.authentication.shared.serialization.Json;
-import uk.gov.di.authentication.shared.services.AuthenticationAttemptsService;
 import uk.gov.di.authentication.sharedtest.basetest.ApiGatewayHandlerIntegrationTest;
 import uk.gov.di.authentication.sharedtest.extensions.AuthSessionExtension;
 import uk.gov.di.authentication.sharedtest.extensions.AuthenticationAttemptsStoreExtension;
@@ -113,9 +112,6 @@ public class CheckReAuthUserHandlerIntegrationTest extends ApiGatewayHandlerInte
                 }
             };
 
-    private final AuthenticationAttemptsService authenticationService =
-            new AuthenticationAttemptsService(CONFIGURATION_SERVICE);
-
     @BeforeEach
     void setup() throws Json.JsonException {
         authSessionExtension.addSession(SESSION_ID);
@@ -130,14 +126,8 @@ public class CheckReAuthUserHandlerIntegrationTest extends ApiGatewayHandlerInte
     class SuccessTests {
         @Test
         void shouldReturn200WithSuccessfulCheckReAuthUserRequest() {
-            userStore.signUp(TEST_EMAIL, "password-1", SUBJECT);
-            registerClient("https://" + INTERNAL_SECTOR_HOST);
-            authSessionExtension.addRpSectorIdentifierHostToSession(
-                    SESSION_ID, INTERNAL_SECTOR_HOST);
-            byte[] salt = userStore.addSalt(TEST_EMAIL);
-            var expectedPairwiseId =
-                    ClientSubjectHelper.calculatePairwiseIdentifier(
-                            SUBJECT.getValue(), INTERNAL_SECTOR_HOST, salt);
+            setupUserAndClient("https://" + INTERNAL_SECTOR_HOST, INTERNAL_SECTOR_HOST);
+            var expectedPairwiseId = setupPairwiseId();
             var request = new CheckReauthUserRequest(TEST_EMAIL, expectedPairwiseId);
             var response =
                     makeRequest(
@@ -161,14 +151,8 @@ public class CheckReAuthUserHandlerIntegrationTest extends ApiGatewayHandlerInte
     class UserNotFoundTests {
         @Test
         void shouldReturn404WhenUserNotFound() {
-            userStore.signUp(TEST_EMAIL, "password-1", SUBJECT);
-            registerClient("https://randomSectorIDuRI.COM");
-            authSessionExtension.addRpSectorIdentifierHostToSession(
-                    SESSION_ID, "randomSectorIDuRI.COM");
-            byte[] salt = userStore.addSalt(TEST_EMAIL);
-            var expectedPairwiseId =
-                    ClientSubjectHelper.calculatePairwiseIdentifier(
-                            SUBJECT.getValue(), INTERNAL_SECTOR_HOST, salt);
+            setupUserAndClient("https://randomSectorIDuRI.COM", "randomSectorIDuRI.COM");
+            var expectedPairwiseId = setupPairwiseId();
             var request = new CheckReauthUserRequest(TEST_EMAIL, expectedPairwiseId);
             var response =
                     makeRequest(
@@ -183,14 +167,8 @@ public class CheckReAuthUserHandlerIntegrationTest extends ApiGatewayHandlerInte
 
         @Test
         void shouldReturn404WhenUserNotMatched() {
-            userStore.signUp(TEST_EMAIL, "password-1", SUBJECT);
-            registerClient("https://randomSectorIDuRI.COM");
-            authSessionExtension.addRpSectorIdentifierHostToSession(
-                    SESSION_ID, "randomSectorIDuRI.COM");
-            byte[] salt = userStore.addSalt(TEST_EMAIL);
-            var expectedPairwiseId =
-                    ClientSubjectHelper.calculatePairwiseIdentifier(
-                            SUBJECT.getValue(), INTERNAL_SECTOR_HOST, salt);
+            setupUserAndClient("https://randomSectorIDuRI.COM", "randomSectorIDuRI.COM");
+            var expectedPairwiseId = setupPairwiseId();
             var request = new CheckReauthUserRequest(TEST_EMAIL, expectedPairwiseId);
             var response =
                     makeRequest(
@@ -217,12 +195,12 @@ public class CheckReAuthUserHandlerIntegrationTest extends ApiGatewayHandlerInte
                                 var request =
                                         new CheckReauthUserRequest(
                                                 "wrong@example.com", expectedPairwiseId);
-            var response =
-                    makeRequest(
-                            Optional.of(request),
-                            requestHeaders,
-                            Collections.emptyMap(),
-                            Collections.emptyMap(),
+                                var response =
+                                        makeRequest(
+                                                Optional.of(request),
+                                                requestHeaders,
+                                                Collections.emptyMap(),
+                                                Collections.emptyMap(),
                                                 Map.of());
                                 assertThat(response, hasStatus(404));
 
@@ -337,9 +315,9 @@ public class CheckReAuthUserHandlerIntegrationTest extends ApiGatewayHandlerInte
     private void createEmailAttempts(String identifier, int count) {
         var ttl = NowHelper.nowPlus(10, ChronoUnit.MINUTES).toInstant().getEpochSecond();
         IntStream.range(0, count)
-                    .forEach(
-                            i ->
-                                    authCodeExtension.createOrIncrementCount(
+                .forEach(
+                        i ->
+                                authCodeExtension.createOrIncrementCount(
                                         identifier,
                                         ttl,
                                         JourneyType.REAUTHENTICATION,
@@ -353,9 +331,9 @@ public class CheckReAuthUserHandlerIntegrationTest extends ApiGatewayHandlerInte
                         i ->
                                 authCodeExtension.createOrIncrementCount(
                                         identifier,
-                                            ttl,
-                                            JourneyType.REAUTHENTICATION,
-                                            CountType.ENTER_PASSWORD));
+                                        ttl,
+                                        JourneyType.REAUTHENTICATION,
+                                        CountType.ENTER_PASSWORD));
     }
 
     private void registerClient(String sectorIdentifierUri) {
