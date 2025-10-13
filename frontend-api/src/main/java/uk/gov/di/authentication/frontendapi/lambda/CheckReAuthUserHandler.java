@@ -10,7 +10,6 @@ import uk.gov.di.audit.AuditContext;
 import uk.gov.di.authentication.frontendapi.domain.FrontendAuditableEvent;
 import uk.gov.di.authentication.frontendapi.entity.CheckReauthUserRequest;
 import uk.gov.di.authentication.frontendapi.entity.ReauthFailureReasons;
-import uk.gov.di.authentication.frontendapi.exceptions.AccountLockedException;
 import uk.gov.di.authentication.frontendapi.helpers.ReauthMetadataBuilder;
 import uk.gov.di.authentication.shared.domain.CloudwatchMetrics;
 import uk.gov.di.authentication.shared.entity.CountType;
@@ -152,99 +151,92 @@ public class CheckReAuthUserHandler extends BaseFrontendHandler<CheckReauthUserR
         Optional<UserProfile> maybeUserProfileOfUserSuppliedEmail =
                 authenticationService.getUserProfileByEmailMaybe(request.email());
 
-        try {
-            if (maybeUserProfileOfUserSuppliedEmail.isEmpty()) {
-                return generateErrorResponse(
-                        emailUserIsSignedInWith,
-                        request.rpPairwiseId(),
-                        auditContext,
-                        pairwiseIdMetadataPair,
-                        request.email(),
-                        maybeUserProfileOfUserSuppliedEmail);
-            }
-
-            var userProfile = maybeUserProfileOfUserSuppliedEmail.get();
-
-            var countTypesToCounts =
-                    authenticationAttemptsService.getCountsByJourneyForSubjectIdAndRpPairwiseId(
-                            userProfile.getSubjectID(),
-                            request.rpPairwiseId(),
-                            JourneyType.REAUTHENTICATION);
-
-            var exceededCountTypes =
-                    ReauthAuthenticationAttemptsHelper.countTypesWhereUserIsBlockedForReauth(
-                            countTypesToCounts, configurationService);
-
-            if (!exceededCountTypes.isEmpty()) {
-                LOG.info(
-                        "Account is locked due to exceeded counts on count types {}",
-                        exceededCountTypes);
-                ReauthFailureReasons failureReason =
-                        getReauthFailureReasonFromCountTypes(exceededCountTypes);
-                auditService.submitAuditEvent(
-                        FrontendAuditableEvent.AUTH_REAUTH_FAILED,
-                        auditContext,
-                        ReauthMetadataBuilder.builder(request.rpPairwiseId())
-                                .withAllIncorrectAttemptCounts(countTypesToCounts)
-                                .withFailureReason(failureReason)
-                                .build());
-                cloudwatchMetricsService.incrementCounter(
-                        CloudwatchMetrics.REAUTH_FAILED.getValue(),
-                        Map.of(
-                                ENVIRONMENT.getValue(),
-                                configurationService.getEnvironment(),
-                                FAILURE_REASON.getValue(),
-                                failureReason == null ? "unknown" : failureReason.getValue()));
-
-                throw new AccountLockedException(
-                        "Account is locked due to too many failed attempts.",
-                        ErrorResponse.TOO_MANY_INVALID_REAUTH_ATTEMPTS);
-            }
-
-            var calculatedPairwiseId =
-                    ClientSubjectHelper.getSubject(
-                                    userProfile,
-                                    userContext.getAuthSession(),
-                                    authenticationService)
-                            .getValue();
-
-            if (!calculatedPairwiseId.equals(request.rpPairwiseId())) {
-                // note here that this retrieval is duplicated a lot here.
-                // Currently duplicating so that
-                // we don't hit merge conflicts with
-                // other PRs that are forced to populate these values in audit
-                // events in different ways,
-                // but
-                // once these are done, we should make this consistent and just
-                // get these counts once.
-                LOG.warn(
-                        "Could not calculate rp pairwise ID. User re-authentication verification failed");
-                return generateErrorResponse(
-                        emailUserIsSignedInWith,
-                        request.rpPairwiseId(),
-                        auditContext,
-                        pairwiseIdMetadataPair,
-                        request.email(),
-                        maybeUserProfileOfUserSuppliedEmail);
-            }
-
-            var incorrectEmailCount =
-                    authenticationAttemptsService.getCount(
-                            userProfile.getSubjectID(),
-                            JourneyType.REAUTHENTICATION,
-                            CountType.ENTER_EMAIL);
-
-            auditService.submitAuditEvent(
-                    AUTH_REAUTH_ACCOUNT_IDENTIFIED,
+        if (maybeUserProfileOfUserSuppliedEmail.isEmpty()) {
+            return generateErrorResponse(
+                    emailUserIsSignedInWith,
+                    request.rpPairwiseId(),
                     auditContext,
                     pairwiseIdMetadataPair,
-                    pair("incorrect_email_attempt_count", incorrectEmailCount));
-
-            return generateSuccessResponse();
-        } catch (AccountLockedException e) {
-            LOG.warn("Account is unable to reauth due to too many failed attempts.");
-            return generateApiGatewayProxyErrorResponse(400, e.getErrorResponse());
+                    request.email(),
+                    maybeUserProfileOfUserSuppliedEmail);
         }
+
+        var userProfile = maybeUserProfileOfUserSuppliedEmail.get();
+
+        var countTypesToCounts =
+                authenticationAttemptsService.getCountsByJourneyForSubjectIdAndRpPairwiseId(
+                        userProfile.getSubjectID(),
+                        request.rpPairwiseId(),
+                        JourneyType.REAUTHENTICATION);
+
+        var exceededCountTypes =
+                ReauthAuthenticationAttemptsHelper.countTypesWhereUserIsBlockedForReauth(
+                        countTypesToCounts, configurationService);
+
+        if (!exceededCountTypes.isEmpty()) {
+            LOG.info(
+                    "Account is locked due to exceeded counts on count types {}",
+                    exceededCountTypes);
+            ReauthFailureReasons failureReason =
+                    getReauthFailureReasonFromCountTypes(exceededCountTypes);
+            auditService.submitAuditEvent(
+                    FrontendAuditableEvent.AUTH_REAUTH_FAILED,
+                    auditContext,
+                    ReauthMetadataBuilder.builder(request.rpPairwiseId())
+                            .withAllIncorrectAttemptCounts(countTypesToCounts)
+                            .withFailureReason(failureReason)
+                            .build());
+            cloudwatchMetricsService.incrementCounter(
+                    CloudwatchMetrics.REAUTH_FAILED.getValue(),
+                    Map.of(
+                            ENVIRONMENT.getValue(),
+                            configurationService.getEnvironment(),
+                            FAILURE_REASON.getValue(),
+                            failureReason == null ? "unknown" : failureReason.getValue()));
+
+            LOG.warn("Account is unable to reauth due to too many failed attempts");
+            return generateApiGatewayProxyErrorResponse(
+                    400, ErrorResponse.TOO_MANY_INVALID_REAUTH_ATTEMPTS);
+        }
+
+        var calculatedPairwiseId =
+                ClientSubjectHelper.getSubject(
+                                userProfile, userContext.getAuthSession(), authenticationService)
+                        .getValue();
+
+        if (!calculatedPairwiseId.equals(request.rpPairwiseId())) {
+            // note here that this retrieval is duplicated a lot here.
+            // Currently duplicating so that
+            // we don't hit merge conflicts with
+            // other PRs that are forced to populate these values in audit
+            // events in different ways,
+            // but
+            // once these are done, we should make this consistent and just
+            // get these counts once.
+            LOG.warn(
+                    "Could not calculate rp pairwise ID. User re-authentication verification failed");
+            return generateErrorResponse(
+                    emailUserIsSignedInWith,
+                    request.rpPairwiseId(),
+                    auditContext,
+                    pairwiseIdMetadataPair,
+                    request.email(),
+                    maybeUserProfileOfUserSuppliedEmail);
+        }
+
+        var incorrectEmailCount =
+                authenticationAttemptsService.getCount(
+                        userProfile.getSubjectID(),
+                        JourneyType.REAUTHENTICATION,
+                        CountType.ENTER_EMAIL);
+
+        auditService.submitAuditEvent(
+                AUTH_REAUTH_ACCOUNT_IDENTIFIED,
+                auditContext,
+                pairwiseIdMetadataPair,
+                pair("incorrect_email_attempt_count", incorrectEmailCount));
+
+        return generateSuccessResponse();
     }
 
     private APIGatewayProxyResponseEvent generateSuccessResponse() {
@@ -341,9 +333,10 @@ public class CheckReAuthUserHandler extends BaseFrontendHandler<CheckReauthUserR
                             AUDIT_EVENT_EXTENSIONS_ATTEMPT_NO_FAILED_AT,
                             configurationService.getMaxEmailReAuthRetries()),
                     pairwiseIdMetadataPair);
-            throw new AccountLockedException(
-                    "Re-authentication is locked due to too many failed attempts.",
-                    ErrorResponse.TOO_MANY_INVALID_REAUTH_ATTEMPTS);
+
+            LOG.warn("Account is unable to reauth due to too many failed attempts");
+            return generateApiGatewayProxyErrorResponse(
+                    400, ErrorResponse.TOO_MANY_INVALID_REAUTH_ATTEMPTS);
         }
 
         return generateApiGatewayProxyErrorResponse(404, USER_NOT_FOUND);
