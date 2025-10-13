@@ -238,9 +238,7 @@ public class LoginHandler extends BaseFrontendHandler<LoginRequest>
         if (decisionResult.isFailure()) {
             DecisionError failure = decisionResult.getFailure();
             LOG.error("Failure to get canReceivePassword decision due to {}", failure);
-            var httpResponse = DecisionErrorHttpMapper.toHttpResponse(failure);
-            return generateApiGatewayProxyErrorResponse(
-                    httpResponse.statusCode(), httpResponse.errorResponse());
+            return DecisionErrorHttpMapper.toApiGatewayProxyErrorResponse(failure);
         }
 
         var decision = decisionResult.getSuccess();
@@ -502,9 +500,7 @@ public class LoginHandler extends BaseFrontendHandler<LoginRequest>
         if (decisionResult.isFailure()) {
             DecisionError failure = decisionResult.getFailure();
             LOG.error("Failure to get canReceivePassword decision due to {}", failure);
-            var httpResponse = DecisionErrorHttpMapper.toHttpResponse(failure);
-            return generateApiGatewayProxyErrorResponse(
-                    httpResponse.statusCode(), httpResponse.errorResponse());
+            return DecisionErrorHttpMapper.toApiGatewayProxyErrorResponse(failure);
         }
 
         var decision = decisionResult.getSuccess();

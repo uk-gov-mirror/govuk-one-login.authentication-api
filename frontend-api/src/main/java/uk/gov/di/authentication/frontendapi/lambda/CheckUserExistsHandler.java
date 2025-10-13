@@ -141,10 +141,8 @@ public class CheckUserExistsHandler extends BaseFrontendHandler<CheckUserExistsR
 
             if (decisionResult.isFailure()) {
                 LOG.info("No decision made: {}", decisionResult.getFailure());
-                var httpResponse =
-                        DecisionErrorHttpMapper.toHttpResponse(decisionResult.getFailure());
-                return generateApiGatewayProxyErrorResponse(
-                        httpResponse.statusCode(), httpResponse.errorResponse());
+                return DecisionErrorHttpMapper.toApiGatewayProxyErrorResponse(
+                        decisionResult.getFailure());
             }
 
             if (decisionResult.getSuccess() instanceof Decision.TemporarilyLockedOut) {
@@ -200,11 +198,8 @@ public class CheckUserExistsHandler extends BaseFrontendHandler<CheckUserExistsR
             var lockoutInformationResult = determineLockoutInformation(userPermissionContext);
 
             if (lockoutInformationResult.isFailure()) {
-                var httpResponse =
-                        DecisionErrorHttpMapper.toHttpResponse(
-                                lockoutInformationResult.getFailure());
-                return generateApiGatewayProxyErrorResponse(
-                        httpResponse.statusCode(), httpResponse.errorResponse());
+                return DecisionErrorHttpMapper.toApiGatewayProxyErrorResponse(
+                        lockoutInformationResult.getFailure());
             }
 
             var lockoutInformation = lockoutInformationResult.getSuccess();
