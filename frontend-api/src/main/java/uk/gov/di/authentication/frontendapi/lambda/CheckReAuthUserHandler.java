@@ -32,6 +32,7 @@ import uk.gov.di.authentication.shared.services.CloudwatchMetricsService;
 import uk.gov.di.authentication.shared.services.CodeStorageService;
 import uk.gov.di.authentication.shared.services.ConfigurationService;
 import uk.gov.di.authentication.shared.state.UserContext;
+import uk.gov.di.authentication.userpermissions.PermissionDecisionManager;
 import uk.gov.di.authentication.userpermissions.UserActionsManager;
 
 import java.time.temporal.ChronoUnit;
@@ -60,6 +61,7 @@ public class CheckReAuthUserHandler extends BaseFrontendHandler<CheckReauthUserR
     private final AuthenticationAttemptsService authenticationAttemptsService;
     private final CloudwatchMetricsService cloudwatchMetricsService;
     private final UserActionsManager userActionsManager;
+    private final PermissionDecisionManager permissionDecisionManager;
 
     public CheckReAuthUserHandler(
             ConfigurationService configurationService,
@@ -69,7 +71,8 @@ public class CheckReAuthUserHandler extends BaseFrontendHandler<CheckReauthUserR
             AuthenticationAttemptsService authenticationAttemptsService,
             CloudwatchMetricsService cloudwatchMetricsService,
             AuthSessionService authSessionService,
-            UserActionsManager userActionsManager) {
+            UserActionsManager userActionsManager,
+            PermissionDecisionManager permissionDecisionManager) {
         super(
                 CheckReauthUserRequest.class,
                 configurationService,
@@ -80,6 +83,7 @@ public class CheckReAuthUserHandler extends BaseFrontendHandler<CheckReauthUserR
         this.authenticationAttemptsService = authenticationAttemptsService;
         this.cloudwatchMetricsService = cloudwatchMetricsService;
         this.userActionsManager = userActionsManager;
+        this.permissionDecisionManager = permissionDecisionManager;
     }
 
     public CheckReAuthUserHandler(ConfigurationService configurationService) {
@@ -94,6 +98,11 @@ public class CheckReAuthUserHandler extends BaseFrontendHandler<CheckReauthUserR
                         configurationService,
                         codeStorageService,
                         this.authSessionService,
+                        this.authenticationAttemptsService);
+        this.permissionDecisionManager =
+                new PermissionDecisionManager(
+                        configurationService,
+                        codeStorageService,
                         this.authenticationAttemptsService);
     }
 
