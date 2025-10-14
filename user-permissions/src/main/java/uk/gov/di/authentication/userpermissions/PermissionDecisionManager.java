@@ -52,6 +52,22 @@ public class PermissionDecisionManager implements PermissionDecisions {
     @Override
     public Result<DecisionError, Decision> canReceiveEmailAddress(
             JourneyType journeyType, UserPermissionContext userPermissionContext) {
+        if (journeyType == null || userPermissionContext == null) {
+            return Result.failure(DecisionError.INVALID_USER_CONTEXT);
+        }
+
+        if (journeyType == JourneyType.REAUTHENTICATION) {
+            if (userPermissionContext.internalSubjectId() == null
+                    || userPermissionContext.rpPairwiseId() == null) {
+                return Result.failure(DecisionError.INVALID_USER_CONTEXT);
+            }
+
+            return this.checkForAnyReauthLockout(
+                    userPermissionContext.internalSubjectId(),
+                    userPermissionContext.rpPairwiseId(),
+                    CountType.ENTER_EMAIL);
+        }
+
         return Result.success(new Decision.Permitted(0));
     }
 

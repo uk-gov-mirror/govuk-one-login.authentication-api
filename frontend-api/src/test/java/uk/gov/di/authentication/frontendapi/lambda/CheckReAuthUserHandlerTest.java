@@ -14,6 +14,7 @@ import uk.gov.di.authentication.shared.entity.ClientRegistry;
 import uk.gov.di.authentication.shared.entity.CountType;
 import uk.gov.di.authentication.shared.entity.ErrorResponse;
 import uk.gov.di.authentication.shared.entity.JourneyType;
+import uk.gov.di.authentication.shared.entity.Result;
 import uk.gov.di.authentication.shared.entity.UserProfile;
 import uk.gov.di.authentication.shared.helpers.ClientSubjectHelper;
 import uk.gov.di.authentication.shared.helpers.SaltHelper;
@@ -27,7 +28,11 @@ import uk.gov.di.authentication.shared.services.ConfigurationService;
 import uk.gov.di.authentication.shared.state.UserContext;
 import uk.gov.di.authentication.userpermissions.PermissionDecisionManager;
 import uk.gov.di.authentication.userpermissions.UserActionsManager;
+import uk.gov.di.authentication.userpermissions.entity.Decision;
+import uk.gov.di.authentication.userpermissions.entity.ForbiddenReason;
+import uk.gov.di.authentication.userpermissions.entity.UserPermissionContext;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -150,6 +155,10 @@ class CheckReAuthUserHandlerTest {
 
         when(clientRegistry.getRedirectUrls()).thenReturn(List.of(INTERNAL_SECTOR_URI));
 
+        when(permissionDecisionManager.canReceiveEmailAddress(
+                        any(JourneyType.class), any(UserPermissionContext.class)))
+                .thenReturn(Result.success(new Decision.Permitted(0)));
+
         expectedRpPairwiseSub =
                 ClientSubjectHelper.getSubject(USER_PROFILE, authSession, authenticationService)
                         .getValue();
@@ -170,8 +179,9 @@ class CheckReAuthUserHandlerTest {
     @Test
     void shouldReturn200ForSuccessfulReAuthRequest() {
         var existingCountOfIncorrectEmails = 1;
-        setupExistingEnterEmailAttemptsCountForIdentifier(
-                existingCountOfIncorrectEmails, TEST_SUBJECT_ID);
+        when(permissionDecisionManager.canReceiveEmailAddress(
+                        eq(JourneyType.REAUTHENTICATION), any()))
+                .thenReturn(Result.success(new Decision.Permitted(existingCountOfIncorrectEmails)));
 
         var result =
                 handler.handleRequestWithUserContext(
@@ -221,6 +231,16 @@ class CheckReAuthUserHandlerTest {
 
     @Test
     void shouldReturn400WhenUserHasEnteredEmailTooManyTimes() {
+        when(permissionDecisionManager.canReceiveEmailAddress(
+                        eq(JourneyType.REAUTHENTICATION), any()))
+                .thenReturn(
+                        Result.success(
+                                new Decision.TemporarilyLockedOut(
+                                        ForbiddenReason
+                                                .EXCEEDED_INCORRECT_EMAIL_ADDRESS_SUBMISSION_LIMIT,
+                                        MAX_RETRIES,
+                                        Instant.MAX,
+                                        false)));
         setupExistingEnterEmailAttemptsCountForSubjectIdAndPairwiseId(MAX_RETRIES, 0);
         var result =
                 handler.handleRequestWithUserContext(
@@ -261,6 +281,17 @@ class CheckReAuthUserHandlerTest {
     @Test
     void shouldReturn400WhenUserHasEnteredEmailTooManyTimesAcrossRpPairwiseIdAndSubjectId() {
         setupExistingEnterEmailAttemptsCountForSubjectIdAndPairwiseId(MAX_RETRIES - 1, 1);
+        when(permissionDecisionManager.canReceiveEmailAddress(
+                        eq(JourneyType.REAUTHENTICATION), any()))
+                .thenReturn(
+                        Result.success(
+                                new Decision.TemporarilyLockedOut(
+                                        ForbiddenReason
+                                                .EXCEEDED_INCORRECT_EMAIL_ADDRESS_SUBMISSION_LIMIT,
+                                        MAX_RETRIES,
+                                        Instant.MAX,
+                                        false)));
+
         var result =
                 handler.handleRequestWithUserContext(
                         API_REQUEST_EVENT_WITH_VALID_HEADERS,
@@ -299,6 +330,17 @@ class CheckReAuthUserHandlerTest {
 
     @Test
     void shouldReturn400WhenUserHasBeenBlockedForPasswordRetries() {
+        when(permissionDecisionManager.canReceiveEmailAddress(
+                        eq(JourneyType.REAUTHENTICATION), any()))
+                .thenReturn(
+                        Result.success(
+                                new Decision.TemporarilyLockedOut(
+                                        ForbiddenReason
+                                                .EXCEEDED_INCORRECT_PASSWORD_SUBMISSION_LIMIT,
+                                        MAX_RETRIES,
+                                        Instant.MAX,
+                                        false)));
+
         when(authenticationAttemptsService.getCountsByJourneyForSubjectIdAndRpPairwiseId(
                         TEST_SUBJECT_ID, expectedRpPairwiseSub, JourneyType.REAUTHENTICATION))
                 .thenReturn(Map.of(CountType.ENTER_PASSWORD, MAX_RETRIES));
@@ -316,6 +358,16 @@ class CheckReAuthUserHandlerTest {
 
     @Test
     void shouldReturn400WhenUserHasBeenBlockedForMfaAttempts() {
+        when(permissionDecisionManager.canReceiveEmailAddress(
+                        eq(JourneyType.REAUTHENTICATION), any()))
+                .thenReturn(
+                        Result.success(
+                                new Decision.TemporarilyLockedOut(
+                                        ForbiddenReason.EXCEEDED_INCORRECT_MFA_OTP_SUBMISSION_LIMIT,
+                                        MAX_RETRIES,
+                                        Instant.MAX,
+                                        false)));
+
         when(authenticationAttemptsService.getCountsByJourneyForSubjectIdAndRpPairwiseId(
                         TEST_SUBJECT_ID, expectedRpPairwiseSub, JourneyType.REAUTHENTICATION))
                 .thenReturn(Map.of(CountType.ENTER_MFA_CODE, MAX_RETRIES));
