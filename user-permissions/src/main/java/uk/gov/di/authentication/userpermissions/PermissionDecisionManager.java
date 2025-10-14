@@ -58,7 +58,7 @@ public class PermissionDecisionManager implements PermissionDecisions {
 
         if (journeyType == JourneyType.REAUTHENTICATION) {
             if (userPermissionContext.internalSubjectId() == null
-                    || userPermissionContext.rpPairwiseId() == null) {
+                    || userPermissionContext.rpPairwiseId() == null) { // TODO this should fail soon
                 return Result.failure(DecisionError.INVALID_USER_CONTEXT);
             }
 

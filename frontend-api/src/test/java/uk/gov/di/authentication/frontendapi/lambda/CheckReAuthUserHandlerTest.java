@@ -41,7 +41,6 @@ import java.util.Optional;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
@@ -497,11 +496,11 @@ class CheckReAuthUserHandlerTest {
                 new CheckReauthUserRequest(EMAIL_USED_TO_SIGN_IN, TEST_RP_PAIRWISE_ID),
                 userContext);
 
-        verify(authenticationAttemptsService)
-                .createOrIncrementCount(
-                        eq(TEST_SUBJECT_ID),
-                        anyLong(),
+        verify(userActionsManager)
+                .incorrectEmailAddressReceived(
                         eq(JourneyType.REAUTHENTICATION),
-                        eq(CountType.ENTER_EMAIL));
+                        eq(
+                                new UserPermissionContext(
+                                        TEST_SUBJECT_ID, TEST_RP_PAIRWISE_ID, null, null)));
     }
 }

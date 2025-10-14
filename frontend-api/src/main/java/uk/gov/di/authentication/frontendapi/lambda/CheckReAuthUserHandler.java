@@ -20,7 +20,6 @@ import uk.gov.di.authentication.shared.entity.JourneyType;
 import uk.gov.di.authentication.shared.entity.UserProfile;
 import uk.gov.di.authentication.shared.helpers.ClientSubjectHelper;
 import uk.gov.di.authentication.shared.helpers.IpAddressHelper;
-import uk.gov.di.authentication.shared.helpers.NowHelper;
 import uk.gov.di.authentication.shared.helpers.PersistentIdHelper;
 import uk.gov.di.authentication.shared.lambda.BaseFrontendHandler;
 import uk.gov.di.authentication.shared.services.AuditService;
@@ -40,7 +39,6 @@ import uk.gov.di.authentication.userpermissions.entity.Decision;
 import uk.gov.di.authentication.userpermissions.entity.DecisionError;
 import uk.gov.di.authentication.userpermissions.entity.UserPermissionContext;
 
-import java.time.temporal.ChronoUnit;
 import java.util.Map;
 import java.util.Optional;
 
@@ -157,6 +155,13 @@ public class CheckReAuthUserHandler extends BaseFrontendHandler<CheckReauthUserR
         Optional<UserProfile> maybeSignedInUserProfile =
                 authenticationService.getUserProfileByEmailMaybe(emailUserIsSignedInWith);
 
+        var userPermissionContext =
+                new UserPermissionContext(
+                        maybeSignedInUserProfile.map(UserProfile::getSubjectID).orElse(null),
+                        request.rpPairwiseId(),
+                        null,
+                        null);
+
         if (maybeUserProfileOfUserSuppliedEmail.isEmpty()) {
             return generateErrorResponse(
                     maybeSignedInUserProfile,
@@ -164,17 +169,11 @@ public class CheckReAuthUserHandler extends BaseFrontendHandler<CheckReauthUserR
                     auditContext,
                     pairwiseIdMetadataPair,
                     request.email(),
-                    maybeUserProfileOfUserSuppliedEmail);
+                    maybeUserProfileOfUserSuppliedEmail,
+                    userPermissionContext);
         }
 
         var userProfileOfUserSuppliedEmail = maybeUserProfileOfUserSuppliedEmail.get();
-
-        var userPermissionContext =
-                new UserPermissionContext(
-                        userProfileOfUserSuppliedEmail.getSubjectID(),
-                        request.rpPairwiseId(),
-                        null,
-                        null);
 
         var canReceiveEmailAddressResult =
                 permissionDecisionManager.canReceiveEmailAddress(
@@ -244,7 +243,8 @@ public class CheckReAuthUserHandler extends BaseFrontendHandler<CheckReauthUserR
                     auditContext,
                     pairwiseIdMetadataPair,
                     request.email(),
-                    maybeUserProfileOfUserSuppliedEmail);
+                    maybeUserProfileOfUserSuppliedEmail,
+                    userPermissionContext);
         }
 
         auditService.submitAuditEvent(
@@ -269,7 +269,8 @@ public class CheckReAuthUserHandler extends BaseFrontendHandler<CheckReauthUserR
             AuditContext auditContext,
             AuditService.MetadataPair pairwiseIdMetadataPair,
             String userSuppliedEmail,
-            Optional<UserProfile> userProfileOfSuppliedEmail) {
+            Optional<UserProfile> userProfileOfSuppliedEmail,
+            UserPermissionContext userPermissionContext) {
 
         String uniqueUserIdentifier = rpPairwiseId;
         Optional<String> additionalIdentifier = Optional.empty();
@@ -278,15 +279,8 @@ public class CheckReAuthUserHandler extends BaseFrontendHandler<CheckReauthUserR
             additionalIdentifier = Optional.of(rpPairwiseId);
         }
 
-        authenticationAttemptsService.createOrIncrementCount(
-                uniqueUserIdentifier,
-                NowHelper.nowPlus(
-                                configurationService.getReauthEnterEmailCountTTL(),
-                                ChronoUnit.SECONDS)
-                        .toInstant()
-                        .getEpochSecond(),
-                JourneyType.REAUTHENTICATION,
-                CountType.ENTER_EMAIL);
+        userActionsManager.incorrectEmailAddressReceived(
+                JourneyType.REAUTHENTICATION, userPermissionContext);
 
         var updatedCount =
                 authenticationAttemptsService.getCount(

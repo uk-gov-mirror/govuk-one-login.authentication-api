@@ -55,6 +55,21 @@ public class UserActionsManager implements UserActions {
     @Override
     public Result<TrackingError, Void> incorrectEmailAddressReceived(
             JourneyType journeyType, UserPermissionContext userPermissionContext) {
+        if (journeyType == JourneyType.REAUTHENTICATION) {
+            String identifier =
+                    userPermissionContext.internalSubjectId() != null
+                            ? userPermissionContext.internalSubjectId()
+                            : userPermissionContext.rpPairwiseId();
+            authenticationAttemptsService.createOrIncrementCount(
+                    identifier,
+                    NowHelper.nowPlus(
+                                    configurationService.getReauthEnterEmailCountTTL(),
+                                    ChronoUnit.SECONDS)
+                            .toInstant()
+                            .getEpochSecond(),
+                    JourneyType.REAUTHENTICATION,
+                    CountType.ENTER_EMAIL);
+        }
         return Result.success(null);
     }
 
