@@ -184,7 +184,6 @@ public class LoginHandler extends BaseFrontendHandler<LoginRequest>
 
         JourneyType journeyType =
                 request.getJourneyType() != null ? request.getJourneyType() : JourneyType.SIGN_IN;
-        var isReauthJourney = journeyType == JourneyType.REAUTHENTICATION;
 
         attachSessionIdToLogs(userContext.getAuthSession().getSessionId());
         attachLogFieldToLogs(
@@ -250,7 +249,7 @@ public class LoginHandler extends BaseFrontendHandler<LoginRequest>
                     400, ErrorResponse.TOO_MANY_INVALID_REAUTH_ATTEMPTS);
         }
 
-        if (decision instanceof Decision.TemporarilyLockedOut temporarilyLockedOut) {
+        if (decision instanceof Decision.TemporarilyLockedOut) {
             auditService.submitAuditEvent(
                     FrontendAuditableEvent.AUTH_ACCOUNT_TEMPORARILY_LOCKED,
                     auditContext,
@@ -271,12 +270,7 @@ public class LoginHandler extends BaseFrontendHandler<LoginRequest>
 
         if (!credentialsAreValid(request, userProfile)) {
             return handleInvalidCredentials(
-                    auditContext,
-                    userProfile,
-                    isReauthJourney,
-                    journeyType,
-                    authSession,
-                    userPermissionContext);
+                    auditContext, userProfile, journeyType, authSession, userPermissionContext);
         }
 
         return handleValidCredentials(
@@ -429,7 +423,6 @@ public class LoginHandler extends BaseFrontendHandler<LoginRequest>
     private APIGatewayProxyResponseEvent handleInvalidCredentials(
             AuditContext auditContext,
             UserProfile userProfile,
-            boolean isReauthJourney,
             JourneyType journeyType,
             AuthSessionItem authSession,
             UserPermissionContext userPermissionContext) {
