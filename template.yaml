@@ -121,9 +121,9 @@ Mappings:
       defaultProvisionedConcurrency: 0
       aisUriSecretId: 6b29b810-e509-4354-9d75-934d0f154d07
       ipvStubDomain: "ipvstub.oidc.authdev3.dev.account.gov.uk"
-      authStubEnabled: false
+      authStubEnabled: true
     build:
-      dynatraceSecretArn: arn:aws:secretsmanager:eu-west-2:216552277552:secret:DynatraceNonProductionVariables
+      dynatraceSecretArn: arn:aws:secretsmanager:eu-west-2:216552277552:secret:DynatracseNonProductionVariables
       dynatraceLayerArn: arn:aws:lambda:eu-west-2:216552277552:layer:Dynatrace_OneAgent_1_311_51_20250331-143707_with_collector_java:1
       authApiId: "6of9f4amvg"
       authExternalApiId: "fag06zqnve"
