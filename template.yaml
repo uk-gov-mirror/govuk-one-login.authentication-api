@@ -38,6 +38,10 @@ Parameters:
     Type: Number
     Description: Minimum number of errors before error rate alarms can be triggered
     Default: 4
+  MinJourneyThreshold:
+    Type: Number
+    Description: Minimum number of journeys before journey rate alarms can be triggered
+    Default: 10
 
 Conditions:
   UsePermissionsBoundary:
@@ -8237,6 +8241,137 @@ Resources:
               MetricName: !Sub ${Environment}-doc-app-callback-count
               Namespace: LambdaErrorsNamespace
             Period: 600
+            Stat: Sum
+            Unit: Count
+  #endregion
+
+  #region journey completion rate alarms
+  AuthJourneyCompletionRateAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      ActionsEnabled: true
+      AlarmActions:
+        - !If
+          - IsNotProduction
+          - !Ref SlackEvents
+          - !Ref OrchProdSlackEvents
+      AlarmDescription: !Sub "Auth journey completion rate has dropped below 80% in ${Environment}.ACCOUNT: di-orchestration-${Environment}."
+      AlarmName: !Sub ${Environment}-auth-journey-completion-rate-alarm
+      ComparisonOperator: LessThanOrEqualToThreshold
+      EvaluationPeriods: 1
+      Threshold: 80
+      Metrics:
+        - Id: e1
+          ReturnData: true
+          Expression: !Sub "IF(m2 >= ${MinJourneyThreshold}, m1/m2*100, 0)"
+          Label: Journey Completion Rate
+        - Id: m1
+          ReturnData: false
+          MetricStat:
+            Metric:
+              Namespace: Authenticaton
+              MetricName: orchAuthJourneyCompleted
+            Period: 900
+            Stat: Sum
+            Unit: Count
+        - Id: m2
+          ReturnData: false
+          MetricStat:
+            Metric:
+              Namespace: Authentication
+              MetricName: orchAuthorizeRequestCount
+              Dimensions:
+                - Name: isDocAppJourney
+                  Value: false
+                - Name: isIdentityJourney
+                  Value: false
+            Period: 900
+            Stat: Sum
+            Unit: Count
+
+  IdentityJourneyCompletionRateAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      ActionsEnabled: true
+      AlarmActions:
+        - !If
+          - IsNotProduction
+          - !Ref SlackEvents
+          - !Ref OrchProdSlackEvents
+      AlarmDescription: !Sub "Identity journey completion rate has dropped below 50% in ${Environment}.ACCOUNT: di-orchestration-${Environment}."
+      AlarmName: !Sub ${Environment}-identity-journey-completion-rate-alarm
+      ComparisonOperator: LessThanOrEqualToThreshold
+      EvaluationPeriods: 1
+      Threshold: 50
+      Metrics:
+        - Id: e1
+          ReturnData: true
+          Expression: !Sub "IF(m2 >= ${MinJourneyThreshold}, m1/m2*100, 0)"
+          Label: Journey Completion Rate
+        - Id: m1
+          ReturnData: false
+          MetricStat:
+            Metric:
+              Namespace: Authenticaton
+              MetricName: orchIdentityJourneyCompleted
+            Period: 900
+            Stat: Sum
+            Unit: Count
+        - Id: m2
+          ReturnData: false
+          MetricStat:
+            Metric:
+              Namespace: Authentication
+              MetricName: orchAuthorizeRequestCount
+              Dimensions:
+                - Name: isDocAppJourney
+                  Value: false
+                - Name: isIdentityJourney
+                  Value: true
+            Period: 900
+            Stat: Sum
+            Unit: Count
+
+  DocAppJourneyCompletionRateAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      ActionsEnabled: true
+      AlarmActions:
+        - !If
+          - IsNotProduction
+          - !Ref SlackEvents
+          - !Ref OrchProdSlackEvents
+      AlarmDescription: !Sub "Doc app journey completion rate has dropped below 30% in ${Environment}.ACCOUNT: di-orchestration-${Environment}."
+      AlarmName: !Sub ${Environment}-docapp-journey-completion-rate-alarm
+      ComparisonOperator: LessThanOrEqualToThreshold
+      EvaluationPeriods: 1
+      Threshold: 30
+      Metrics:
+        - Id: e1
+          ReturnData: true
+          Expression: !Sub "IF(m2 >= ${MinJourneyThreshold}, m1/m2*100, 0)"
+          Label: Journey Completion Rate
+        - Id: m1
+          ReturnData: false
+          MetricStat:
+            Metric:
+              Namespace: Authenticaton
+              MetricName: DocAppCallback
+            Period: 900
+            Stat: Sum
+            Unit: Count
+        - Id: m2
+          ReturnData: false
+          MetricStat:
+            Metric:
+              Namespace: Authentication
+              MetricName: orchAuthorizeRequestCount
+              Dimensions:
+                - Name: isDocAppJourney
+                  Value: true
+                - Name: isIdentityJourney
+                  Value: false
+            Period: 900
             Stat: Sum
             Unit: Count
   #endregion
