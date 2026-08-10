@@ -7,6 +7,7 @@ import software.amazon.awssdk.services.dynamodb.model.BatchGetItemResponse;
 import software.amazon.awssdk.services.dynamodb.model.KeysAndAttributes;
 import uk.gov.di.authentication.shared.entity.UserCredentials;
 import uk.gov.di.authentication.shared.entity.UserProfile;
+import uk.gov.di.authentication.shared.helpers.ClientSubjectHelper;
 import uk.gov.di.authentication.shared.helpers.NowHelper;
 import uk.gov.di.authentication.utils.entity.InactiveAccountTrackerItem;
 
@@ -150,11 +151,30 @@ public class InactiveAccountDataExportHelper {
 
     public static InactiveAccountTrackerItem buildTrackerItem(
             Map<String, AttributeValue> userProfileItem,
-            Map<String, AttributeValue> userCredentialsItem) {
+            Map<String, AttributeValue> userCredentialsItem,
+            String internalSectorUri) {
         String subjectId = getStringAttribute(userProfileItem, UserProfile.ATTRIBUTE_SUBJECT_ID);
         String publicSubjectId =
                 getStringAttribute(userProfileItem, UserProfile.ATTRIBUTE_PUBLIC_SUBJECT_ID);
         String email = getStringAttribute(userProfileItem, UserProfile.ATTRIBUTE_EMAIL);
+
+        AttributeValue saltAttr = userProfileItem.get(UserProfile.ATTRIBUTE_SALT);
+        if (saltAttr == null || saltAttr.b() == null || saltAttr.b().asByteArray().length == 0) {
+            LOG.warn(
+                    "Skipping tracker item for public subject ID '{}': salt is missing or empty",
+                    publicSubjectId);
+            return null;
+        }
+        byte[] salt = saltAttr.b().asByteArray();
+
+        if (subjectId == null) {
+            LOG.warn(
+                    "Skipping tracker item for public subject ID '{}': subject ID is null",
+                    publicSubjectId);
+            return null;
+        }
+        String commonSubjectId =
+                ClientSubjectHelper.calculatePairwiseIdentifier(subjectId, internalSectorUri, salt);
 
         LastActiveDate lastActiveDate =
                 calculateLastActiveDate(userProfileItem, userCredentialsItem);
@@ -175,7 +195,7 @@ public class InactiveAccountDataExportHelper {
 
         return new InactiveAccountTrackerItem()
                 .withDateForDeletion(dateForDeletion)
-                .withCommonSubjectId(subjectId)
+                .withCommonSubjectId(commonSubjectId)
                 .withPublicSubjectId(publicSubjectId)
                 .withEmailAddress(email)
                 .withEmailAddressLastUpdated(profileUpdated)
