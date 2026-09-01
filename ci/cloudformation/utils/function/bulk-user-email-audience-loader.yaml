@@ -16,6 +16,7 @@ Resources:
         - !Ref DynamoBulkEmailTablesAccessPolicy
         - !Ref EmailCheckResultsTableWritePolicy
         - !Ref CloudWatchLogsKmsAccessPolicy
+        - !Ref BulkUserEmailAudienceLoaderSelfInvokePolicy
       AutoPublishAlias: live
       LoggingConfig:
         LogGroup: !Ref BulkUserEmailAudienceLoaderLogGroup
@@ -159,3 +160,18 @@ Resources:
         - Name: FunctionName
           Value: !Ref BulkUserEmailAudienceLoaderLambda
       TreatMissingData: notBreaching
+
+  BulkUserEmailAudienceLoaderSelfInvokePolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Condition: BulkEmailSendingEnabled
+    Properties:
+      Description: "IAM policy allowing the bulk user email audience loader lambda to invoke itself recursively"
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action: lambda:InvokeFunction
+            Resource: !Sub
+              - "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${EnvironmentName}-bulk-user-email-audience-loader-lambda"
+              - EnvironmentName:
+                  !If [UseSubEnvironment, !Ref SubEnvironment, !Ref Environment]
