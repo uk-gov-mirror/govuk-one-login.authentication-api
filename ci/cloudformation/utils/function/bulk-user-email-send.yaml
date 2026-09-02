@@ -1,3 +1,20 @@
+Mappings:
+  ProdNotifyTemplateMap:
+    Templates:
+      TERMSANDCONDITIONSBULKEMAILTEMPLATEID: "173418a1-c442-4c4b-a6d1-d23f473f3dd0"
+      INTERNATIONALNUMBERSFORCEDMFARESETBULKEMAILTEMPLATEID: "c3331551-6814-421b-890f-dfbb9a32bb83"
+
+  NonProdNotifyTemplateMap:
+    Templates:
+      TERMSANDCONDITIONSBULKEMAILTEMPLATEID: "067548f2-420d-4da9-923f-ec9a941706cf"
+      INTERNATIONALNUMBERSFORCEDMFARESETBULKEMAILTEMPLATEID: "fcc5cc49-f896-4887-9ce2-567f93721bc4"
+
+Conditions:
+  IsProduction:
+    Fn::Equals:
+      - !Ref Environment
+      - production
+
 Resources:
   BulkUserEmailSendLambda:
     Type: AWS::Serverless::Function
@@ -45,18 +62,26 @@ Resources:
             - "{{resolve:secretsmanager:/deploy/${env}/notify_api_key}}"
             - env:
                 !If [UseSubEnvironment, !Ref SubEnvironment, !Ref Environment]
-          NOTIFY_TEMPLATE_MAP: !If
-            - UseSubEnvironment
-            - !FindInMap [
-                EnvironmentConfiguration,
-                !Ref SubEnvironment,
-                notifyTemplateMap,
-              ]
-            - !FindInMap [
-                EnvironmentConfiguration,
-                !Ref Environment,
-                notifyTemplateMap,
-              ]
+          TERMS_AND_CONDITIONS_BULK_EMAIL_TEMPLATE_ID:
+            !FindInMap [
+              !If [
+                IsProduction,
+                ProdNotifyTemplateMap,
+                NonProdNotifyTemplateMap,
+              ],
+              Templates,
+              TERMSANDCONDITIONSBULKEMAILTEMPLATEID,
+            ]
+          INTERNATIONAL_NUMBERS_FORCED_MFA_RESET_BULK_EMAIL_TEMPLATE_ID:
+            !FindInMap [
+              !If [
+                IsProduction,
+                ProdNotifyTemplateMap,
+                NonProdNotifyTemplateMap,
+              ],
+              Templates,
+              INTERNATIONALNUMBERSFORCEDMFARESETBULKEMAILTEMPLATEID,
+            ]
           BULK_USER_EMAIL_BATCH_SIZE: !If
             - UseSubEnvironment
             - !FindInMap [
