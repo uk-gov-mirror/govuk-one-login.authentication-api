@@ -9,18 +9,18 @@ version = "unspecified"
 
 dependencies {
     testImplementation libs.bundles.test,
-            libs.bundles.apache,
-            libs.gson,
-            libs.bundles.nimbus,
-            libs.bouncyCastle,
-            libs.awsSqs,
-            libs.awsKms,
-            libs.awsS3,
-            libs.awsCloudwatchEmf,
-            libs.bundles.awsDynamoDb,
-            libs.bundles.lettuce,
-            libs.bundles.awsLambda,
-            libs.pactProvider
+    libs.bundles.apache,
+    libs.gson,
+    libs.bundles.nimbus,
+    libs.bouncyCastle,
+    libs.awsSqs,
+    libs.awsKms,
+    libs.awsS3,
+    libs.awsCloudwatchEmf,
+    libs.bundles.awsDynamoDb,
+    libs.bundles.lettuce,
+    libs.bundles.awsLambda,
+    libs.pactProvider
 
     implementation project(":shared"), noXray
     implementation project(":orchestration-shared"), noXray
@@ -33,7 +33,6 @@ dependencies {
     implementation project(":ipv-api"), noXray
     implementation project(":sis-api"), noXray
     implementation project(":interventions-api-stub"), noXray
-    implementation project(":doc-checking-app-api"), noXray
     implementation project(":utils"), noXray
     implementation project(":user-permissions"), noXray
 
@@ -80,7 +79,7 @@ test {
 
 pactPublish.enabled = false
 
-task pactProviderTests (type: Test, group: "verification") {
+task pactProviderTests(type: Test, group: "verification") {
     useJUnitPlatform()
     testClassesDirs = sourceSets.test.output.classesDirs
     classpath = sourceSets.test.runtimeClasspath

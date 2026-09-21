@@ -8,18 +8,18 @@ version = "unspecified"
 
 dependencies {
     testImplementation libs.bouncyCastle,
-            libs.bundles.apache,
-            libs.bundles.nimbus,
-            libs.gson,
-            libs.bundles.test,
-            libs.awsKms,
-            libs.awsSqs,
-            libs.awsSsm,
-            libs.bundles.awsDynamoDb,
-            libs.bundles.awsLambda,
-            libs.bundles.lettuce,
-            libs.libphonenumber,
-            libs.wiremock
+    libs.bundles.apache,
+    libs.bundles.nimbus,
+    libs.gson,
+    libs.bundles.test,
+    libs.awsKms,
+    libs.awsSqs,
+    libs.awsSsm,
+    libs.bundles.awsDynamoDb,
+    libs.bundles.awsLambda,
+    libs.bundles.lettuce,
+    libs.libphonenumber,
+    libs.wiremock
 
     implementation project(':audit-events')
 

@@ -8,9 +8,9 @@ version = "unspecified"
 
 dependencies {
     testImplementation libs.bundles.nimbus,
-            libs.bundles.test,
-            libs.bundles.awsLambda,
-            libs.bundles.lettuce
+    libs.bundles.test,
+    libs.bundles.awsLambda,
+    libs.bundles.lettuce
 
     implementation project(":shared"), noXray
     testImplementation project(":delivery-receipts-api"), noXray

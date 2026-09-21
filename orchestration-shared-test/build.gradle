@@ -7,24 +7,23 @@ version = "unspecified"
 
 dependencies {
     implementation libs.bundles.test,
-            libs.bundles.awsLambda,
-            libs.bundles.apache,
-            libs.bundles.nimbus,
-            libs.bundles.lettuce,
-            libs.bundles.awsDynamoDb,
-            libs.awsKms,
-            libs.awsSns,
-            libs.awsS3,
-            libs.awsSqs,
-            libs.awsSsm,
-            libs.awsCloudwatchEmf,
-            libs.pactProvider,
-            "org.eclipse.jetty:jetty-server:12.0.36",
-            "com.google.code.gson:gson:2.14.0"
+    libs.bundles.awsLambda,
+    libs.bundles.apache,
+    libs.bundles.nimbus,
+    libs.bundles.lettuce,
+    libs.bundles.awsDynamoDb,
+    libs.awsKms,
+    libs.awsSns,
+    libs.awsS3,
+    libs.awsSqs,
+    libs.awsSsm,
+    libs.awsCloudwatchEmf,
+    libs.pactProvider,
+    "org.eclipse.jetty:jetty-server:12.0.36",
+    "com.google.code.gson:gson:2.14.0"
 
     implementation project(":orchestration-shared")
     implementation project(":frontend-api")
-    implementation project(":doc-checking-app-api")
 }
 
 test {
